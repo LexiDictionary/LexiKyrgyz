@@ -2,470 +2,85 @@ function isKyrgyz(text) {
   return /[\u0400-\u04FF]/.test(text);
 }
 
-const dictionary = {
-  en: {
-    "apple": {
-      canonical: "apple",
-      pronunciation: "/ˈæp.əl/",
-      topic: "food",
-      forms: ["apple", "apples"],
-      senses: [
-        {
-          pos: "noun",
-          definition: "a round fruit with red or green skin",
-          translation: "алма",
-          examples: [
-            { en: "She ate an apple for lunch.", kg: "Ал түштүккө алма жеди." },
-            { en: "Apples grow on trees.", kg: "Алма даракта өсөт." }
-          ],
-          derivatives: [
-            { word: "apple pie", translation: "алма пирогу" },
-            { word: "applesauce", translation: "алма пюреси" }
-          ],
-          grammar: { plural: "apples" }
-        }
-      ]
-    },
-    "fire": {
-      canonical: "fire",
-      pronunciation: "/faɪər/",
-      senses: [
-        {
-          pos: "noun",
-          topic: "nature",
-          definition: "burning material",
-          translation: "от",
-          examples: [
-            { en: "Be careful with the fire.", kg: "От менен абай болуңуз." },
-            { en: "The campfire kept us warm.", kg: "Лагердеги от бизди жылытты." }
-          ],
-          derivatives: [
-            { word: "fiery", translation: "оттуу" },
-            { word: "fireplace", translation: "от жагуучу жай" }
-          ],
-          grammar: { plural: "fires" }
-        },
-        {
-          pos: "verb",
-          topic: "employment",
-          definition: "dismiss from job",
-          translation: "жумуштан чыгаруу",
-          examples: [
-            { en: "They fired him for being late.", kg: "Ал кечиккендиктен жумуштан чыгарылды." },
-            { en: "She was fired last week.", kg: "Ал өткөн аптада жумуштан чыгарылды." }
-          ],
-          derivatives: [
-            { word: "firing", translation: "жумуштан чыгаруу" },
-            { word: "fireable", translation: "жумуштан чыгарылышы мүмкүн" }
-          ],
-          grammar: {
-            past: "fired",
-            pastParticiple: "fired",
-            presentParticiple: "firing",
-            thirdPerson: "fires"
-          }
-        }
-      ],
-      forms: ["fire", "fires", "fired", "firing"]
-    },
-    "beautiful": {
-      canonical: "beautiful",
-      pronunciation: "/ˈbjuː.tɪ.fəl/",
-      topic: "description",
-      senses: [
-        {
-          pos: "adjective",
-          definition: "pleasing the senses or mind aesthetically",
-          translation: "сүйкүмдүү",
-          examples: [
-            { en: "She is a beautiful woman.", kg: "Ал сүйкүмдүү аял." },
-            { en: "What a beautiful day!", kg: "Кандай сүйкүмдүү күн!" }
-          ],
-          derivatives: [
-            { word: "beauty", translation: "сүйкүмдүүлүк" },
-            { word: "beautifully", translation: "сүйкүмдүү түрдө" }
-          ],
-          grammar: { comparative: "more beautiful", superlative: "most beautiful" }
-        }
-      ],
-      forms: ["beautiful", "more beautiful", "most beautiful"]
-    },
-    "water": {
-      canonical: "water",
-      pronunciation: "/ˈwɔː.tər/",
-      topic: "nature",
-      forms: ["water", "waters"],
-      senses: [
-        {
-          pos: "noun",
-          definition: "clear liquid",
-          translation: "суу",
-          examples: [
-            { en: "Drink more water every day.", kg: "Күн сайын көбүрөөк суу ичиңиз." },
-            { en: "The water in this lake is clean.", kg: "Бул көлдүн суусу таза." }
-          ],
-          derivatives: [
-            { word: "watery", translation: "суулуу" },
-            { word: "watering", translation: "суу куюу" }
-          ],
-          grammar: { plural: "waters" }
-        }
-      ]
-    },
-    "run": {
-      canonical: "run",
-      pronunciation: "/rʌn/",
-      topic: "action",
-      forms: ["run", "runs", "ran", "running"],
-      senses: [
-        {
-          pos: "verb",
-          definition: "move quickly on foot",
-          translation: "жүгүрүү",
-          examples: [
-            { en: "She runs every morning.", kg: "Ал ар күнү эртең менен жүгүрөт." },
-            { en: "Don’t run near the pool.", kg: "Бассейн жанында жүгүрбө." }
-          ],
-          derivatives: [
-            { word: "runner", translation: "жүгүрүүчү" },
-            { word: "running", translation: "жүгүрүү" }
-          ],
-          grammar: {
-            past: "ran",
-            pastParticiple: "run",
-            presentParticiple: "running",
-            thirdPerson: "runs"
-          }
-        }
-      ]
-    },
-    "book": {
-      canonical: "book",
-      pronunciation: "/bʊk/",
-      topic: "education",
-      forms: ["book", "books"],
-      senses: [
-        {
-          pos: "noun",
-          definition: "collection of pages with text or images",
-          translation: "китеп",
-          examples: [
-            { en: "I read a book every night.", kg: "Мен ар кече китеп окуп жатам." },
-            { en: "This book is very interesting.", kg: "Бул китеп абдан кызыктуу." }
-          ],
-          derivatives: [
-            { word: "bookshelf", translation: "китеп салгыч" },
-            { word: "bookmark", translation: "китеп белгиси" }
-          ],
-          grammar: { plural: "books" }
-        }
-      ]
-    },
-    "happy": {
-      canonical: "happy",
-      pronunciation: "/ˈhæp.i/",
-      topic: "emotions",
-      senses: [
-        {
-          pos: "adjective",
-          definition: "feeling or showing pleasure or contentment",
-          translation: "баакыттуу",
-          examples: [
-            { en: "I'm happy to see you.", kg: "Сени көрүп турганыма кубанычтынам." },
-            { en: "She has a happy family.", kg: "Анын баакыттуу үй-бүлөсү бар." }
-          ],
-          derivatives: [
-            { word: "happiness", translation: "баакыт" },
-            { word: "happily", translation: "баакыттуу түрдө" }
-          ],
-          grammar: { comparative: "happier", superlative: "happiest" }
-        }
-      ],
-      forms: ["happy", "happier", "happiest"]
-    },
-    "thank you": {
-      canonical: "thank you",
-      pronunciation: "/θæŋk juː/",
-      topic: "politeness",
-      senses: [
-        {
-          pos: "fixed expression",
-          definition: "an expression of gratitude",
-          translation: "рахмат",
-          examples: [
-            { en: "Thank you for your help.", kg: "Жардамыңыз үчүн рахмат!" },
-            { en: "Thank you very much!", kg: "Чындап рахмат!" }
-          ],
-          derivatives: [],
-          grammar: {}
-        }
-      ],
-      forms: ["thank you"]
-    },
-    "house": {
-      canonical: "house",
-      pronunciation: "/haʊs/",
-      topic: "housing",
-      forms: ["house", "houses"],
-      senses: [
-        {
-          pos: "noun",
-          definition: "building for living",
-          translation: "үй",
-          examples: [
-            { en: "They built a new house.", kg: "Алар жаңы үй курушуу." },
-            { en: "Home is where the heart is.", kg: "Үй - жүрөгүң жаткан жер." }
-          ],
-          derivatives: [
-            { word: "household", translation: "үй-бүлө" },
-            { word: "housing", translation: "жайлар" }
-          ],
-          grammar: { plural: "houses" }
-        }
-      ]
-    }
-  },
-  kg: {
-    "алма": {
-      canonical: "алма",
-      pronunciation: "/alma/",
-      topic: "food",
-      cefr: "A1",
-      forms: ["алма", "алманы", "алмалар"],
-      senses: [
-        {
-          pos: "noun",
-          definition: "round fruit with red or green skin",
-          translation: "apple",
-          examples: [
-            { en: "I ate an apple.", kg: "Мен алма жедим." },
-            { en: "Apples are sweet.", kg: "Алма таттуу." }
-          ],
-          derivatives: [
-            { word: "алма шырыбы", translation: "apple juice" },
-            { word: "алма дарагы", translation: "apple tree" }
-          ],
-          cognates: [],
-          grammar: {
-            accusative: "алманы",
-            plural: "алмалар"
-          }
-        }
-      ]
-    },
-    "от": {
-      canonical: "от",
-      pronunciation: "/ot/",
-      topic: "nature",
-      cefr: "A1",
-      forms: ["от", "отту", "оттор"],
-      senses: [
-        {
-          pos: "noun",
-          definition: "burning material",
-          translation: "fire",
-          examples: [
-            { en: "The fire is warm.", kg: "От жылы." },
-            { en: "Don’t touch the fire.", kg: "Отту тийбейли." }
-          ],
-          derivatives: [
-            { word: "от дөлө", translation: "flame" },
-            { word: "от коргоочу", translation: "firefighter" }
-          ],
-          cognates: [],
-          grammar: {
-            accusative: "отту",
-            plural: "оттор"
-          }
-        }
-      ]
-    },
-    "сүйкүмдүү": {
-      canonical: "сүйкүмдүү",
-      pronunciation: "/süyküm düü/",
-      topic: "description",
-      cefr: "A2",
-      forms: ["сүйкүмдүү", "көбүрөөк сүйкүмдүү", "эң сүйкүмдүү"],
-      senses: [
-        {
-          pos: "adjective",
-          definition: "pleasing the senses or mind aesthetically",
-          translation: "beautiful",
-          examples: [
-            { en: "She is beautiful.", kg: "Ал сүйкүмдүү." },
-            { en: "What a beautiful flower!", kg: "Кандай сүйкүмдүү гүл!" }
-          ],
-          derivatives: [
-            { word: "сүйкүмдүүлүк", translation: "beauty" },
-            { word: "сүйкүмдүү түрдө", translation: "beautifully" }
-          ],
-          cognates: [],
-          grammar: { 
-            comparative: "көбүрөөк сүйкүмдүү", 
-            superlative: "эң сүйкүмдүү" 
-          }
-        }
-      ]
-    },
-    "суу": {
-      canonical: "суу",
-      pronunciation: "/suu/",
-      topic: "nature",
-      cefr: "A1",
-      forms: ["суу", "сууну", "сулар"],
-      senses: [
-        {
-          pos: "noun",
-          definition: "clear liquid",
-          translation: "water",
-          examples: [
-            { en: "Water is essential.", kg: "Суу зарыл." },
-            { en: "I drink water daily.", kg: "Мен күн сайын суу ичем." }
-          ],
-          derivatives: [
-            { word: "суу сактагыч", translation: "water container" },
-            { word: "суулуу", translation: "watery" }
-          ],
-          cognates: [],
-          grammar: {
-            accusative: "сууну",
-            plural: "сулар"
-          }
-        }
-      ]
-    },
-    "жүгүрүү": {
-      canonical: "жүгүрүү",
-      pronunciation: "/jügürüü/",
-      topic: "action",
-      cefr: "A2",
-      forms: ["жүгүрүү", "жүгүрдүм", "жүгүрүп жатам", "жүгүрөт"],
-      senses: [
-        {
-          pos: "verb",
-          definition: "move quickly on foot",
-          translation: "run",
-          examples: [
-            { en: "I run every morning.", kg: "Мен ар күнү эртең менен жүгүрөм." },
-            { en: "He ran to school.", kg: "Ал мектепке жүгүрдү." }
-          ],
-          derivatives: [
-            { word: "жүгүрүүчү", translation: "runner" },
-            { word: "жүгүрүү", translation: "running" }
-          ],
-          cognates: [],
-          grammar: {
-            past: "жүгүрдүм",
-            presentParticiple: "жүгүрүп жатам",
-            thirdPerson: "жүгүрөт"
-          }
-        }
-      ]
-    },
-    "китеп": {
-      canonical: "китеп",
-      pronunciation: "/kitep/",
-      topic: "education",
-      cefr: "A1",
-      forms: ["китеп", "китепти", "китептер"],
-      senses: [
-        {
-          pos: "noun",
-          definition: "collection of pages with text or images",
-          translation: "book",
-          examples: [
-            { en: "I read a book.", kg: "Мен китеп окуп жатам." },
-            { en: "The book is on the table.", kg: "Китеп столдо жатат." }
-          ],
-          derivatives: [
-            { word: "китепкана", translation: "library" },
-            { word: "китеп мукабасы", translation: "book cover" }
-          ],
-          cognates: [],
-          grammar: {
-            accusative: "китепти",
-            plural: "китептер"
-          }
-        }
-      ]
-    },
-    "баакыттуу": {
-      canonical: "баакыттуу",
-      pronunciation: "/baakyttuu/",
-      topic: "emotions",
-      cefr: "A2",
-      forms: ["баакыттуу", "көбүрөөк баакыттуу", "эң баакыттуу"],
-      senses: [
-        {
-          pos: "adjective",
-          definition: "feeling or showing pleasure or contentment",
-          translation: "happy",
-          examples: [
-            { en: "I'm happy.", kg: "Мен баакыттууман." },
-            { en: "She has a happy family.", kg: "Анын баакыттуу үй-бүлөсү бар." }
-          ],
-          derivatives: [
-            { word: "баакыт", translation: "happiness" },
-            { word: "баакыттуу түрдө", translation: "happily" }
-          ],
-          cognates: [],
-          grammar: { 
-            comparative: "көбүрөөк баакыттуу", 
-            superlative: "эң баакыттуу" 
-          }
-        }
-      ]
-    },
-    "рахмат": {
-      canonical: "рахмат",
-      pronunciation: "/Raxmat/",
-      topic: "politeness",
-      cefr: "A1",
-      senses: [
-        {
-          pos: "fixed expression",
-          definition: "an expression of gratitude",
-          translation: "thank you",
-          examples: [
-            { en: "Thank you for your help.", kg: "Жардамыңыз үчүн рахмат!" },
-            { en: "You're welcome!", kg: "Суранбайсыз!" }
-          ],
-          derivatives: [],
-          cognates: [],
-          grammar: {}
-        }
-      ],
-      forms: ["рахмат"]
-    },
-    "үй": {
-      canonical: "үй",
-      pronunciation: "/üy/",
-      topic: "housing",
-      cefr: "A1",
-      forms: ["үй", "үйдү", "үйлөр"],
-      senses: [
-        {
-          pos: "noun",
-          definition: "building for living",
-          translation: "house",
-          examples: [
-            { en: "My house is big.", kg: "Менин үйүм чоң." },
-            { en: "We live in a house.", kg: "Биз үйдө жашайбыз." }
-          ],
-          derivatives: [
-            { word: "үй-бүлө", translation: "household" },
-            { word: "үй жабдыктары", translation: "household items" }
-          ],
-          cognates: [],
-          grammar: {
-            accusative: "үйдү",
-            plural: "үйлөр"
-          }
-        }
-      ]
-    }
+
+// ===== CONFIG =====
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx-qnkw2QsWTciPvX78FaEP997nC47-ursNry48E8ifdWIBzaB56rZXQ0M9Fo4HWTUc/exec";
+
+// ===== STATE =====
+let kgToEngDict = {};
+
+// ===== LOAD DICTIONARY FROM GOOGLE SHEETS =====
+async function loadDictionary() {
+  try {
+    const response = await fetch(GOOGLE_SCRIPT_URL);
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    kgToEngDict = await response.json();
+    console.log("Dictionary loaded:", kgToEngDict);
+  } catch (err) {
+    console.error("Failed to load dictionary:", err);
+    document.body.innerHTML += `<div style="color:red;padding:10px">ERROR: Could not load dictionary.</div>`;
   }
-};
+}
+
+// ===== SHOW WORD DEFINITION =====
+function showKgWord(word) {
+  const senses = kgToEngDict[word] || [];
+  let html = '';
+
+  if (senses.length === 0) {
+    html = `<p>No entry found for "<b>${word}</b>".</p>`;
+  } else {
+    senses.forEach(sense => {
+      // Split examples: [kyrgyz, english]
+      const ex = sense.examples ? sense.examples.split(',').map(x => x.trim()) : [];
+      const srcEx = ex[0] || '';
+      const tgtEx = ex[1] || '';
+
+      html += `
+        <div class="word-entry">
+          <h2>${sense.lemma}</h2>
+          ${sense.pronunciation ? `<span class="ipa">${sense.pronunciation}</span>` : ''}
+          <p><strong>POS:</strong> ${sense.pos}</p>
+          <p><strong>Translation:</strong> ${sense.translation}</p>
+          ${sense.grammar ? `<p><em>Grammar:</em> ${sense.grammar}</p>` : ''}
+          ${srcEx ? `<p><strong>Example:</strong><br>${srcEx}<br><em>${tgtEx}</em></p>` : ''}
+          ${sense.derivatives ? `<p><strong>Derivatives:</strong> ${sense.derivatives}</p>` : ''}
+          ${sense.cognates ? `<p><strong>Cognates:</strong> ${sense.cognates}</p>` : ''}
+          ${sense.topic ? `<p><strong>Topic:</strong> ${sense.topic}</p>` : ''}
+        </div>
+        <hr>
+      `;
+    });
+  }
+
+  // FIND THE CONTAINER ON YOUR PAGE
+  let container = document.querySelector('.modal-content') ||
+                 document.querySelector('#definition') ||
+                 document.querySelector('main') ||
+                 document.body;
+
+  container.innerHTML = html;
+}
+
+// ===== HANDLE SEARCH INPUT =====
+function setupSearch() {
+  const input = document.querySelector('input[type="text"]') ||
+                document.querySelector('#search') ||
+                document.querySelector('input');
+
+  if (input) {
+    input.addEventListener('input', (e) => {
+      const word = e.target.value.trim();
+      if (word) showKgWord(word);
+    });
+  }
+}
+
+// ===== START =====
+loadDictionary().then(() => {
+  setupSearch();
+});
+
 
 const searchInput = document.getElementById('searchInput');
 const resultsContainer = document.getElementById('resultsContainer');
