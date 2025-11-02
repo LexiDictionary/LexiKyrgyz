@@ -350,7 +350,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     attachTagFilters();
   };
 
-  random SgBtn.onclick = async () => {
+  randomBtn.onclick = async () => {
     if (!lemmaList.length) await preloadCache();
     if (!lemmaList.length) return;
 
