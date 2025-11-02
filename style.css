@@ -156,7 +156,7 @@ body {
   border-bottom: 1px solid var(--border-color);
 }
 .grammar-item:last-child { border-bottom: none; }
-.grammar-label { font-weight: 600; color: var(--text-primary); margin-right: 9px; }
+.grammar-label { font-weight: 600; color:var(--text-primary); margin-right: 9px; }
 
 .related-words-list { display:flex; flex-wrap:wrap; gap:18px; margin-top:10px; }
 .related-item { display:flex; flex-direction:column; min-width:135px; }
