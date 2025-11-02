@@ -1,51 +1,34 @@
-// ------------------------------------------------------------
-// GLOBAL $ HELPER — MUST BE AT THE TOP
-// ------------------------------------------------------------
-const $  = s => document.querySelector(s);
+const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 
-// ------------------------------------------------------------
-// 1. SUPABASE + GLOBAL CACHE
-// ------------------------------------------------------------
 const SUPABASE_URL = 'https://jvizodlmiiisubatqykg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2aXpvZGxtaWlpc3ViYXRxeWtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NjYxNTYsImV4cCI6MjA3NzI0MjE1Nn0.YD9tMUyQVq7v5gkWq-f_sQfYfD2raq_o7FeOmLjeN7I';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let lemmaCache = new Map();
 let lemmaList = [];
-let filterCache = {
-  cefr: new Map(),
-  pos: new Map(),
-  topic: new Map()
-};
+let filterCache = { cefr: new Map(), pos: new Map(), topic: new Map() };
 let isCacheLoading = false;
 
-// ------------------------------------------------------------
-// 2. DOM READY
-// ------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', async () => {
-  // Hide modals on load
   $('#filterModal').style.display = 'none';
   $('#exerciseModal').style.display = 'none';
 
   await preloadCache();
 
-  const searchInput        = $('#searchInput');
-  const resultsContainer   = $('#resultsContainer');
-  const title              = $('#title');
-  const randomBtn          = $('#randomBtn');
-  const exerciseBtn        = $('#exerciseBtn');
-  const modalTitle         = $('#modalTitle');
-  const modalBody          = $('#modalBody');
-  const closeModal         = $('#closeModal');
+  const searchInput = $('#searchInput');
+  const resultsContainer = $('#resultsContainer');
+  const title = $('#title');
+  const randomBtn = $('#randomBtn');
+  const exerciseBtn = $('#exerciseBtn');
+  const modalTitle = $('#modalTitle');
+  const modalBody = $('#modalBody');
+  const closeModal = $('#closeModal');
   const closeExerciseModal = $('#closeExerciseModal');
-  const virtualKeyboard    = $('#virtualKeyboard');
-  const keyboardToggleBtn  = $('#keyboardToggleBtn');
-  const aboutSection       = $('#aboutSection');
+  const virtualKeyboard = $('#virtualKeyboard');
+  const keyboardToggleBtn = $('#keyboardToggleBtn');
+  const aboutSection = $('#aboutSection');
 
-  // ------------------------------------------------------------ 
-  // 3. HELPERS
-  // ------------------------------------------------------------
   const escapeHtml = unsafe => unsafe
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -68,9 +51,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   };
 
-  // ------------------------------------------------------------ 
-  // 4. CACHE PRELOAD
-  // ------------------------------------------------------------
   const preloadCache = async () => {
     if (isCacheLoading || lemmaList.length > 0) return;
     isCacheLoading = true;
@@ -114,9 +94,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   };
 
-  // ------------------------------------------------------------ 
-  // 5. FETCH LEMMA
-  // ------------------------------------------------------------
   const fetchFullLemma = async (canonical) => {
     if (lemmaCache.has(canonical)) return lemmaCache.get(canonical);
 
@@ -179,9 +156,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     return await fetchFullLemma(lemma.canonical);
   };
 
-  // ------------------------------------------------------------ 
-  // 6. RENDER ENTRY
-  // ------------------------------------------------------------
   const renderEntry = (headword, entry) => {
     const kyrgyzHead = isKyrgyz(headword) ? 'kyrgyz' : '';
 
@@ -246,9 +220,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       </div>`;
   };
 
-  // ------------------------------------------------------------ 
-  // 7. SHOW FILTER MODAL
-  // ------------------------------------------------------------
   const showFilterModal = (type) => {
     const titles = { cefr: 'CEFR Levels', pos: 'Parts of Speech', topic: 'Topics' };
     modalTitle.textContent = titles[type];
@@ -278,9 +249,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   };
 
-  // ------------------------------------------------------------ 
-  // 8. FILTER & SHOW RESULTS
-  // ------------------------------------------------------------
   const filterAndShow = async (type, value) => {
     let lemmasToShow = [];
 
@@ -335,9 +303,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     attachTagFilters();
   };
 
-  // ------------------------------------------------------------ 
-  // 9. TAG CLICK → OPEN MODAL
-  // ------------------------------------------------------------
   const attachTagFilters = () => {
     $$('.tag-btn').forEach(btn => {
       btn.onclick = (e) => {
@@ -347,9 +312,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   };
 
-  // ------------------------------------------------------------ 
-  // 10. SEARCH
-  // ------------------------------------------------------------
   const showResult = async (query = '') => {
     const q = query.trim();
     if (!q) {
@@ -388,10 +350,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     attachTagFilters();
   };
 
-  // ------------------------------------------------------------ 
-  // 11. BUTTONS
-  // ------------------------------------------------------------
-  randomBtn.onclick = async () => {
+  random SgBtn.onclick = async () => {
     if (!lemmaList.length) await preloadCache();
     if (!lemmaList.length) return;
 
@@ -406,9 +365,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   exerciseBtn.onclick = generateExercise;
 
-  // ------------------------------------------------------------ 
-  // 12. EXERCISE
-  // ------------------------------------------------------------
   const generateExercise = async () => {
     if (!lemmaList.length) await preloadCache();
     if (!lemmaList.length) return;
@@ -468,9 +424,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   closeExerciseModal.onclick = () => $('#exerciseModal').style.display = 'none';
 
-  // ------------------------------------------------------------ 
-  // 13. UI: Title, Search, Keyboard, Close
-  // ------------------------------------------------------------
   title.onclick = () => { searchInput.value = ''; showResult(''); };
 
   let searchTimeout;
@@ -504,6 +457,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (e.target === $('#exerciseModal')) $('#exerciseModal').style.display = 'none';
   });
 
-  // Initial
   showResult('');
 });
