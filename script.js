@@ -1,3 +1,6 @@
+// ------------------------------------------------------------
+// 1. SUPABASE + CACHE
+// ------------------------------------------------------------
 const SUPABASE_URL = 'https://jvizodlmiiisubatqykg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2aXpvZGxtaWlpc3ViYXRxeWtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NjYxNTYsImV4cCI6MjA3NzI0MjE1Nn0.YD9tMUyQVq7v5gkWq-f_sQfYfD2raq_o7FeOmLjeN7I';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -25,6 +28,9 @@ const preloadCache = async () => {
   isCacheLoading = false;
 };
 
+// ------------------------------------------------------------
+// 2. DOM READY
+// ------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', async () => {
   await preloadCache();
 
@@ -45,6 +51,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const aboutSection       = $('#aboutSection');
   const autocompleteDropdown = $('#autocompleteDropdown');
 
+  // ------------------------------------------------------------ 
+  // 3. HELPERS
+  // ------------------------------------------------------------
   const escapeHtml = unsafe => unsafe
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -67,6 +76,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   };
 
+  // ------------------------------------------------------------ 
+  // 4. FETCH LEMMA
+  // ------------------------------------------------------------
   const fetchFullLemma = async (canonical) => {
     if (lemmaCache.has(canonical)) return lemmaCache.get(canonical);
 
@@ -129,6 +141,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     return await fetchFullLemma(lemma.canonical);
   };
 
+  // ------------------------------------------------------------ 
+  // 5. RENDER (RELATED LINKS + LOWERCASE)
+  // ------------------------------------------------------------
   const renderEntry = async (headword, entry) => {
     const kyrgyzHead = isKyrgyz(headword) ? 'kyrgyz' : '';
 
@@ -160,13 +175,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         grammarHtml += `</ul>`;
       }
 
+      // RELATED: LINK IF EXISTS
       const relatedPromises = (sense.related || []).map(async r => {
-        const exists = await supabase
+        const { data } = await supabase
           .from('lemmas')
           .select('id')
           .eq('canonical', r.word)
           .single();
-        if (exists.data) {
+        if (data) {
           return `<div class="related-item">
             <span class="related-word linkable" data-lemma="${escapeHtml(r.word)}">${escapeHtml(r.word)}</span>
             <div class="related-translation">${escapeHtml(r.translation)}</div>
@@ -216,6 +232,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       </div>`;
   };
 
+  // ------------------------------------------------------------ 
+  // 6. AUTOCOMPLETE
+  // ------------------------------------------------------------
   let autocompleteTimeout;
   searchInput.addEventListener('input', () => {
     clearTimeout(autocompleteTimeout);
@@ -239,7 +258,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       const items = data.map(l => `
-        <div class="autocomplete-item" data-lemma="${escapeHtml(l.canonical)}">
+        <div onmousedown="event.preventDefault()" class="autocomplete-item" data-lemma="${escapeHtml(l.canonical)}">
           <span class="kyrgyz">${escapeHtml(l.canonical)}</span>
         </div>
       `).join('');
@@ -263,34 +282,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // ------------------------------------------------------------ 
+  // 7. THIS WORD APPEARS IN
+  // ------------------------------------------------------------
   const checkExampleMatch = async (query) => {
     const { data: examples } = await supabase
       .from('examples')
       .select('kg, sense_id')
       .ilike('kg', `%${query}%`)
-      .limit(1);
+      .limit(3);
 
-    if (!examples || examples.length === 0) return null;
+    if (!examples || examples.length === 0) return [];
 
-    const { data: sense } = await supabase
-      .from('senses')
-      .select('lemma_id')
-      .eq('id', examples[0].sense_id)
-      .single();
+    const suggestions = [];
+    for (const ex of examples) {
+      const { data: sense } = await supabase
+        .from('senses')
+        .select('lemma_id')
+        .eq('id', ex.sense_id)
+        .single();
+      if (!sense) continue;
 
-    if (!sense) return null;
-
-    const { data: lemma } = await supabase
-      .from('lemmas')
-      .select('canonical')
-      .eq('id', sense.lemma_id)
-      .single();
-
-    if (!lemma) return null;
-
-    return { word: lemma.canonical, example: examples[0].kg };
+      const { data: lemma } = await supabase
+        .from('lemmas')
+        .select('canonical')
+        .eq('id', sense.lemma_id)
+        .single();
+      if (lemma) {
+        suggestions.push({ word: lemma.canonical, example: ex.kg });
+      }
+    }
+    return suggestions;
   };
 
+  // ------------------------------------------------------------ 
+  // 8. SEARCH + APPEARS IN
+  // ------------------------------------------------------------
   const showResult = async (query = '') => {
     const q = query.trim();
     if (!q) {
@@ -325,12 +352,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else {
       html = `<div class="no-result">No entry found for "${escapeHtml(q)}"</div>`;
 
-      const suggestion = await checkExampleMatch(q);
-      if (suggestion) {
+      const suggestions = await checkExampleMatch(q);
+      if (suggestions.length > 0) {
+        const links = suggestions.map(s => 
+          `<a href="#" data-lemma="${escapeHtml(s.word)}">${escapeHtml(s.word)}</a>`
+        ).join(', ');
         html += `
-          <div class="did-you-mean">
-            Did you mean <a href="#" data-lemma="${escapeHtml(suggestion.word)}">${escapeHtml(suggestion.word)}</a>?
-            <br><small>Found in example: "${escapeHtml(suggestion.example)}"</small>
+          <div class="appears-in">
+            This word appears in: ${links}
+            <br><small>e.g., "${escapeHtml(suggestions[0].example)}"</small>
           </div>`;
       }
     }
@@ -346,16 +376,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       };
     });
 
-    const dym = $('.did-you-mean a');
-    if (dym) {
-      dym.onclick = (e) => {
+    $$('.appears-in a').forEach(link => {
+      link.onclick = (e) => {
         e.preventDefault();
-        searchInput.value = dym.dataset.lemma;
-        showResult(dym.dataset.lemma);
+        searchInput.value = link.dataset.lemma;
+        showResult(link.dataset.lemma);
       };
-    }
+    });
   };
 
+  // ------------------------------------------------------------ 
+  // 9. RANDOM + EXERCISE
+  // ------------------------------------------------------------
   randomBtn.onclick = async () => {
     if (!lemmaList.length) await preloadCache();
     if (!lemmaList.length) return;
@@ -429,7 +461,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   exerciseBtn.onclick = generateExercise;
   closeExerciseModal.onclick = () => exerciseModal.style.display = 'none';
 
-  title.onclick = () => { searchInput.value = ''; showResult(''); autocompleteDropdown.style.display = 'none'; };
+  // ------------------------------------------------------------ 
+  // 10. UI
+  // ------------------------------------------------------------
+  title.onclick = () => {
+    searchInput.value = '';
+    showResult('');
+    autocompleteDropdown.style.display = 'none';
+  };
 
   let searchTimeout;
   searchInput.addEventListener('input', () => {
