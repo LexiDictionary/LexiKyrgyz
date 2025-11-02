@@ -144,13 +144,23 @@ body {
 .example-original { font-style:italic; color:var(--text-secondary); display:block; }
 .example-translation { font-size:.96rem; color:var(--text-muted); display:block; margin-top:3px; }
 
-.lemma-highlight { background:var(--highlight); padding:1px 4px; border-radius:3px; font-weight:600; }
+.grammar-list {
+  list-style: none;
+  background: transparent;
+  padding: 0;
+  border: none;
+  margin-top: 10px;
+}
+.grammar-item {
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+.grammar-item:last-child { border-bottom: none; }
+.grammar-label { font-weight: 600; color: var(--text-primary); margin-right: 9px; }
 
-.related-list { display:flex; flex-wrap:wrap; gap:18px; margin-top:10px; }
+.related-words-list { display:flex; flex-wrap:wrap; gap:18px; margin-top:10px; }
 .related-item { display:flex; flex-direction:column; min-width:135px; }
 .related-word { font-weight:600; color:var(--text-primary); }
-.related-word.linkable { color:var(--brand-primary); text-decoration:underline;
-  text-decoration-thickness:1.3px; cursor:pointer; }
 .related-translation { font-size:.92rem; color:var(--text-muted); margin-top:3px; }
 
 .filter-modal,.exercise-modal {
