@@ -1,131 +1,10 @@
+const SUPABASE_URL = 'https://jvizodlmiiisubatqykg.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2aXpvZGxtaWlpc3ViYXRxeWtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NjYxNTYsImV4cCI6MjA3NzI0MjE1Nn0.YD9tMUyQVq7v5gkWq-f_sQfYfD2raq_o7FeOmLjeN7I';
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 function isKyrgyz(text) {
   return /[\u0400-\u04FF]/.test(text);
 }
-
-const dictionary = {
-  kg: {
-    "алма": {
-      canonical: "алма",
-      pronunciation: "/alma/",
-      topic: "food",
-      cefr: "A1",
-      forms: ["алма", "алманы", "алмалар"],
-      senses: [
-        {
-          pos: "noun",
-          definition: "round fruit with red or green skin",
-          translation: "apple",
-          examples: [
-            { en: "I ate an apple.", kg: "Мен алма жедим." },
-            { en: "Apples are sweet.", kg: "Алма таттуу." }
-          ],
-          derivatives: [
-            { word: "алма шырыбы", translation: "apple juice" },
-            { word: "алма дарагы", translation: "apple tree" }
-          ],
-          grammar: {
-            accusative: "алманы",
-            plural: "алмалар"
-          }
-        }
-      ]
-    },
-    "от": {
-      canonical: "от",
-      pronunciation: "/ot/",
-      topic: "nature",
-      cefr: "A1",
-      forms: ["от", "отту", "оттор"],
-      senses: [
-        {
-          pos: "noun",
-          definition: "burning material",
-          translation: "fire",
-          examples: [
-            { en: "The fire is warm.", kg: "От жылы." },
-            { en: "Don't touch the fire.", kg: "Отту тийбейли." }
-          ],
-          derivatives: [
-            { word: "от дөлө", translation: "flame" },
-            { word: "от коргоочу", translation: "firefighter" }
-          ],
-          grammar: {
-            accusative: "отту",
-            plural: "оттор"
-          }
-        }
-      ]
-    },
-    "кол": {
-      canonical: "кол",
-      pronunciation: "/kol/",
-      topic: "body",
-      cefr: "A1",
-      forms: ["кол", "колду", "колдор"],
-      senses: [
-        {
-          pos: "noun",
-          definition: "part of the body at the end of the arm",
-          translation: "hand",
-          examples: [
-            { en: "Wash your hands.", kg: "Колуңузду жууңуз." },
-            { en: "He shook my hand.", kg: "Ал менин колумду кысты." }
-          ],
-          derivatives: [
-            { word: "кол саат", translation: "wristwatch" },
-            { word: "кол кап", translation: "glove" }
-          ],
-          grammar: {
-            accusative: "колду",
-            plural: "колдор"
-          }
-        },
-        {
-          pos: "noun",
-          definition: "large natural stream of water",
-          translation: "river",
-          examples: [
-            { en: "The river is wide.", kg: "Дарыя кенен." },
-            { en: "We swam in the river.", kg: "Биз дарыяда сүзүп жүрөбүз." }
-          ],
-          derivatives: [
-            { word: "дарыя жээги", translation: "riverbank" }
-          ],
-          grammar: {
-            accusative: "колду",
-            plural: "колдор"
-          }
-        }
-      ]
-    },
-    "суу": {
-      canonical: "суу",
-      pronunciation: "/suu/",
-      topic: "nature",
-      cefr: "A1",
-      forms: ["суу", "сууну", "сулар"],
-      senses: [
-        {
-          pos: "noun",
-          definition: "clear liquid",
-          translation: "water",
-          examples: [
-            { en: "Water is essential.", kg: "Суу зарыл." },
-            { en: "I drink water daily.", kg: "Мен күн сайын суу ичем." }
-          ],
-          derivatives: [
-            { word: "суу сактагыч", translation: "water container" },
-            { word: "суулуу", translation: "watery" }
-          ],
-          grammar: {
-            accusative: "сууну",
-            plural: "сулар"
-          }
-        }
-      ]
-    }
-  }
-};
 
 const searchInput = document.getElementById('searchInput');
 const resultsContainer = document.getElementById('resultsContainer');
@@ -142,19 +21,83 @@ const keyboardToggleBtn = document.getElementById('keyboardToggleBtn');
 function escapeHtml(unsafe) {
   return unsafe
     .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
+    .replace(/</g, "<")
+    .replace(/>/g, ">")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
 
-function getRandomWord() {
-  const words = Object.keys(dictionary.kg);
-  return words[Math.floor(Math.random() * words.length)];
+async function getRandomWord() {
+  const {  data, error } = await supabase
+    .from('lemmas')
+    .select('canonical')
+    .limit(1)
+    .offset(Math.floor(Math.random() * 1000));
+  if (error) return null;
+  return data.length ? data[0].canonical : null;
 }
 
-function hasLemma(word) {
-  return !!dictionary.kg[word];
+async function fetchAllCanonicals() {
+  const {  data, error } = await supabase.from('lemmas').select('canonical');
+  if (error) return [];
+  return data.map(d => d.canonical);
+}
+
+async function fetchLemmaByCanonical(canonical) {
+  const {  lemma, error } = await supabase
+    .from('lemmas')
+    .select('*')
+    .eq('canonical', canonical)
+    .single();
+  if (error) return null;
+
+  const {  senses, error: sensesError } = await supabase
+    .from('senses')
+    .select('*')
+    .eq('lemma_id', lemma.id)
+    .order('id', { ascending: true });
+  if (sensesError) return null;
+
+  for (const sense of senses) {
+    const {  examples, error: exError } = await supabase
+      .from('examples')
+      .select('*')
+      .eq('sense_id', sense.id);
+    sense.examples = exError ? [] : examples.map(e => ({ kg: e.kg, en: e.en }));
+
+    const {  related, error: relError } = await supabase
+      .from('related')
+      .select('*')
+      .eq('sense_id', sense.id);
+    sense.derivatives = relError ? [] : related.map(r => ({ word: r.word, translation: r.translation }));
+  }
+
+  return {
+    canonical: lemma.canonical,
+    pronunciation: lemma.pronunciation || '',
+    topic: senses[0]?.topic || '',
+    cefr: lemma.cefr || '',
+    forms: [],
+    senses: senses
+  };
+}
+
+async function fetchLemmaByForm(form) {
+  const {  formMatch, error } = await supabase
+    .from('forms')
+    .select('lemma_id')
+    .eq('form', form)
+    .single();
+  if (error) return null;
+
+  const {  lemma, error: leError } = await supabase
+    .from('lemmas')
+    .select('canonical')
+    .eq('id', formMatch.lemma_id)
+    .single();
+  if (leError) return null;
+
+  return await fetchLemmaByCanonical(lemma.canonical);
 }
 
 function renderEntry(lemma, entry) {
@@ -185,10 +128,9 @@ function renderEntry(lemma, entry) {
       }
 
       const derivatives = sense.derivatives.map(der => {
-        const has = hasLemma(der.word);
-        const wordClass = has ? 'derivative-word linkable' : 'derivative-word';
+        const wordClass = 'derivative-word';
         return `<div class="derivative-item">
-          <span class="${wordClass}" ${has ? `data-word="${der.word}"` : ''}>${escapeHtml(der.word)}</span>
+          <span class="${wordClass}">${escapeHtml(der.word)}</span>
           <div class="derivative-translation">${escapeHtml(der.translation)}</div>
         </div>`;
       }).join('');
@@ -198,13 +140,13 @@ function renderEntry(lemma, entry) {
           <div class="tags-container">${tags}</div>
           <span class="sense-number">${index + 1}.</span>
           <div class="translation ${transClass}">${escapeHtml(sense.translation)}</div>
-          <span class="sense-definition">${escapeHtml(sense.definition)}</span>
+          <span class="sense-definition">${escapeHtml(sense.definition || '')}</span>
           <div class="section-title">Examples</div>
           <ul class="examples-list">${examples}</ul>
           <div class="section-title">Grammar</div>
           ${grammar}
-          <div class="section-title">Derivatives</div>
-          <div class="derivatives-list">${derivatives}</div>
+          <div class="section-title">Related Words</div>
+          <div class="related-words-list">${derivatives}</div>
         </div>
       `;
     }).join('');
@@ -232,10 +174,9 @@ function renderEntry(lemma, entry) {
     }
 
     const derivatives = sense.derivatives.map(der => {
-      const has = hasLemma(der.word);
-      const wordClass = has ? 'derivative-word linkable' : 'derivative-word';
+      const wordClass = 'derivative-word';
       return `<div class="derivative-item">
-        <span class="${wordClass}" ${has ? `data-word="${der.word}"` : ''}>${escapeHtml(der.word)}</span>
+        <span class="${wordClass}">${escapeHtml(der.word)}</span>
         <div class="derivative-translation">${escapeHtml(der.translation)}</div>
       </div>`;
     }).join('');
@@ -244,13 +185,13 @@ function renderEntry(lemma, entry) {
       <div class="sense-item">
         <div class="tags-container">${tags}</div>
         <div class="translation ${transClass}">${escapeHtml(sense.translation)}</div>
-        <span class="sense-definition">${escapeHtml(sense.definition)}</span>
+        <span class="sense-definition">${escapeHtml(sense.definition || '')}</span>
         <div class="section-title">Examples</div>
         <ul class="examples-list">${examples}</ul>
         <div class="section-title">Grammar</div>
         ${grammar}
-        <div class="section-title">Derivatives</div>
-        <div class="derivatives-list">${derivatives}</div>
+        <div class="section-title">Related Words</div>
+        <div class="related-words-list">${derivatives}</div>
       </div>
     `;
   }
@@ -273,67 +214,97 @@ function renderEntry(lemma, entry) {
   `;
 }
 
-function showResult(query) {
+async function showResult(query) {
   const q = query.toLowerCase().trim();
   if (!q) {
     resultsContainer.innerHTML = `<div class="about-section"><div class="section-title">About</div><p class="about-content">bla blabla bla</p></div>`;
     return;
   }
 
-  const isKg = isKyrgyz(q);
-  let found = false;
+  let entry = null;
+  let lemma = null;
 
-  if (isKg) {
-    if (dictionary.kg[q]) {
-      resultsContainer.innerHTML = renderEntry(q, dictionary.kg[q]);
-      found = true;
+  if (isKyrgyz(q)) {
+    entry = await fetchLemmaByCanonical(q);
+    if (entry) {
+      lemma = q;
     } else {
-      for (let w in dictionary.kg) {
-        if (dictionary.kg[w].forms && dictionary.kg[w].forms.map(f => f.toLowerCase()).includes(q)) {
-          resultsContainer.innerHTML = renderEntry(w, dictionary.kg[w]);
-          found = true;
-          break;
-        }
+      entry = await fetchLemmaByForm(q);
+      if (entry) {
+        lemma = entry.canonical;
       }
     }
   } else {
-    const matches = [];
-    for (let w in dictionary.kg) {
-      (dictionary.kg[w].senses || [dictionary.kg[w]]).forEach(s => {
-        if (s.translation.toLowerCase() === q) matches.push(w);
-      });
-    }
-    if (matches.length === 1) {
-      resultsContainer.innerHTML = renderEntry(matches[0], dictionary.kg[matches[0]]);
-      found = true;
-    } else if (matches.length > 1) {
-      let html = `<div class="no-result"><p>Multiple words for "${escapeHtml(query)}":</p><ul class="filter-word-list">`;
-      matches.forEach(w => html += `<li class="filter-word-item kyrgyz" data-word="${w}">${w}</li>`);
-      html += `</ul></div>`;
-      resultsContainer.innerHTML = html;
-      found = true;
+    const {  matches, error } = await supabase
+      .from('senses')
+      .select('lemma_id, translation')
+      .eq('translation', q);
+    if (!error && matches.length > 0) {
+      const lemmaIds = [...new Set(matches.map(m => m.lemma_id))];
+      if (lemmaIds.length === 1) {
+        const {  lemmaData, error: leErr } = await supabase
+          .from('lemmas')
+          .select('canonical')
+          .eq('id', lemmaIds[0])
+          .single();
+        if (!leErr) {
+          entry = await fetchLemmaByCanonical(lemmaData.canonical);
+          lemma = lemmaData.canonical;
+        }
+      } else if (lemmaIds.length > 1) {
+        const {  lemmas, error: lErr } = await supabase
+          .from('lemmas')
+          .select('canonical')
+          .in('id', lemmaIds);
+        if (!lErr) {
+          let html = `<div class="no-result"><p>Multiple words for "${escapeHtml(query)}":</p><ul class="filter-word-list">`;
+          lemmas.forEach(l => html += `<li class="filter-word-item kyrgyz" data-word="${l.canonical}">${l.canonical}</li>`);
+          html += `</ul></div>`;
+          resultsContainer.innerHTML = html;
+          attachEventListeners();
+          return;
+        }
+      }
     }
   }
 
-  if (!found) {
+  if (entry && lemma) {
+    resultsContainer.innerHTML = renderEntry(lemma, entry);
+  } else {
     resultsContainer.innerHTML = `<div class="no-result">No entry found for "${escapeHtml(query)}"</div>`;
   }
 
   attachEventListeners();
 }
 
-function generateExercise() {
-  const words = Object.keys(dictionary.kg);
-  const correct = words[Math.floor(Math.random() * words.length)];
-  const sense = dictionary.kg[correct].senses ? dictionary.kg[correct].senses[0] : dictionary.kg[correct];
+async function generateExercise() {
+  const {  data, error } = await supabase
+    .from('lemmas')
+    .select('canonical')
+    .limit(1000);
+  if (error || data.length === 0) return;
+
+  const randomLemma = data[Math.floor(Math.random() * data.length)];
+  const entry = await fetchLemmaByCanonical(randomLemma.canonical);
+  if (!entry || !entry.senses?.[0]) return;
+
+  const sense = entry.senses[0];
   const answer = sense.translation;
 
+  const {  allTranslations, err } = await supabase
+    .from('senses')
+    .select('translation')
+    .neq('lemma_id', entry.id)
+    .limit(100);
+  if (err || allTranslations.length < 3) return;
+
   const distractors = [];
-  while (distractors.length < 3) {
-    const r = words[Math.floor(Math.random() * words.length)];
-    if (r === correct) continue;
-    const rs = dictionary.kg[r].senses ? dictionary.kg[r].senses[0] : dictionary.kg[r];
-    if (!distractors.includes(rs.translation)) distractors.push(rs.translation);
+  const shuffled = allTranslations.sort(() => 0.5 - Math.random());
+  for (let t of shuffled) {
+    if (t.translation !== answer) {
+      distractors.push(t.translation);
+      if (distractors.length === 3) break;
+    }
   }
 
   const options = [answer, ...distractors].sort(() => Math.random() - 0.5);
@@ -341,7 +312,7 @@ function generateExercise() {
 
   const body = exerciseModal.querySelector('.modal-body');
   body.innerHTML = `
-    <div class="exercise-question">What's the English word for <span class="kyrgyz">${correct}</span>?</div>
+    <div class="exercise-question">What's the English word for <span class="kyrgyz">${randomLemma.canonical}</span>?</div>
     <div class="answer-options">${optsHtml}</div>
     <div class="exercise-feedback" style="display:none;"></div>
     <div class="exercise-buttons">
@@ -375,25 +346,16 @@ function generateExercise() {
     };
   });
 
-  // "Close" button closes modal
   body.querySelector('.close-btn').onclick = () => {
     exerciseModal.style.display = 'none';
   };
-
-  // "X" also closes
   closeExerciseModal.onclick = () => {
     exerciseModal.style.display = 'none';
   };
 }
 
 function attachEventListeners() {
-  document.querySelectorAll('.derivative-word.linkable').forEach(el => {
-    el.onclick = () => {
-      searchInput.value = el.dataset.word;
-      showResult(el.dataset.word);
-    };
-  });
-  document.querySelectorAll('.goto-lemma-btn, .filter-word-item').forEach(el => {
+  document.querySelectorAll('.filter-word-item').forEach(el => {
     el.onclick = () => {
       searchInput.value = el.dataset.word;
       showResult(el.dataset.word);
@@ -401,9 +363,15 @@ function attachEventListeners() {
   });
 }
 
-searchInput.addEventListener('input', () => showResult(searchInput.value));
+searchInput.addEventListener('input', (e) => showResult(e.target.value));
 title.onclick = () => { searchInput.value = ''; showResult(''); };
-randomBtn.onclick = () => { const w = getRandomWord(); searchInput.value = w; showResult(w); };
+randomBtn.onclick = async () => {
+  const w = await getRandomWord();
+  if (w) {
+    searchInput.value = w;
+    showResult(w);
+  }
+};
 exerciseBtn.onclick = generateExercise;
 closeModal.onclick = () => filterModal.style.display = 'none';
 
@@ -423,3 +391,7 @@ document.querySelectorAll('.key').forEach(k => {
     showResult(searchInput.value);
   };
 });
+
+function showFilterList(type, value) {
+  console.log('Filter:', type, value);
+}
