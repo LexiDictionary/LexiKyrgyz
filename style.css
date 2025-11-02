@@ -167,9 +167,10 @@ body {
   display:none; position:fixed; z-index:1000; left:0; top:0;
   width:100%; height:100%; background:rgba(0,0,0,.55); backdrop-filter:blur(5px);
 }
+.filter-modal { display: flex; justify-content: center; align-items: center; }
 .modal-content {
   background:white; margin:6% auto; padding:30px; border-radius:var(--radius-md);
-  width:90%; max-width:640px; max-height:86vh; overflow-y:auto;
+  width:90%; max-width:500px; max-height:80vh; overflow-y:auto;
   box-shadow:var(--shadow-md); border:1px solid var(--border-color);
 }
 .modal-header {
@@ -184,6 +185,36 @@ body {
   border-radius:50%; transition:var(--transition);
 }
 .close-modal:hover { background:#fee2e2; color:var(--brand-primary); }
+
+.filter-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.filter-item {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: var(--transition);
+  font-weight: 500;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.filter-item:hover {
+  background: #fffbeb;
+  border-color: var(--brand-primary);
+}
+.filter-item:last-child {
+  border-bottom: none;
+}
+.filter-count {
+  font-size: 0.85rem;
+  color: var(--text-light);
+  background: var(--border-color);
+  padding: 2px 8px;
+  border-radius: 12px;
+}
 
 .exercise-question { font-size:1.55rem; font-weight:600; margin-bottom:26px;
   text-align:center; color:var(--brand-primary); }
