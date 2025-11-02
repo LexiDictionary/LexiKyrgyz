@@ -207,12 +207,23 @@ body {
   cursor: pointer;
   transition: var(--transition);
   font-weight: 500;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 .filter-item:hover {
   background: #fffbeb;
+  border-color: var(--brand-primary);
 }
 .filter-item:last-child {
   border-bottom: none;
+}
+.filter-count {
+  font-size: 0.85rem;
+  color: var(--text-light);
+  background: var(--border-color);
+  padding: 2px 8px;
+  border-radius: 12px;
 }
 
 .exercise-question { font-size:1.55rem; font-weight:600; margin-bottom:26px;
