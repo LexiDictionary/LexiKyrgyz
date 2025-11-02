@@ -2,7 +2,32 @@ const SUPABASE_URL = 'https://jvizodlmiiisubatqykg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2aXpvZGxtaWlpc3ViYXRxeWtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NjYxNTYsImV4cCI6MjA3NzI0MjE1Nn0.YD9tMUyQVq7v5gkWq-f_sQfYfD2raq_o7FeOmLjeN7I';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-document.addEventListener('DOMContentLoaded', () => {
+let lemmaCache = new Map();
+let lemmaList = [];
+let isCacheLoading = false;
+
+const preloadCache = async () => {
+  if (isCacheLoading || lemmaList.length > 0) return;
+  isCacheLoading = true;
+
+  const { data, error } = await supabase
+    .from('lemmas')
+    .select('id, canonical, pronunciation, cefr')
+    .limit(1000);
+
+  if (error || !data) {
+    console.error('Cache preload failed:', error);
+    isCacheLoading = false;
+    return;
+  }
+
+  lemmaList = data;
+  isCacheLoading = false;
+};
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await preloadCache(); // start preloading
+
   const $  = s => document.querySelector(s);
   const $$ = s => document.querySelectorAll(s);
 
@@ -28,17 +53,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const isKyrgyz = text => /[\u0400-\u04FF]/.test(text);
 
-  const getRandomWord = async () => {
-    const { data, error } = await supabase
-      .from('lemmas')
-      .select('canonical')
-      .limit(1)
-      .offset(Math.floor(Math.random() * 1000));
-    if (error) { console.error(error); return null; }
-    return data?.[0]?.canonical ?? null;
-  };
+  const fetchFullLemma = async (canonical) => {
+    if (lemmaCache.has(canonical)) {
+      return lemmaCache.get(canonical);
+    }
 
-  const fetchLemmaByCanonical = async canonical => {
     const { data: lemma, error: e1 } = await supabase
       .from('lemmas')
       .select('*')
@@ -67,16 +86,18 @@ document.addEventListener('DOMContentLoaded', () => {
       sense.related = related || [];
     }
 
-    return {
+    const entry = {
       canonical: lemma.canonical,
       pronunciation: lemma.pronunciation || '',
-      topic: senses[0]?.topic || '',
       cefr: lemma.cefr || '',
       senses
     };
+
+    lemmaCache.set(canonical, entry);
+    return entry;
   };
 
-  const fetchLemmaByForm = async form => {
+  const fetchLemmaByForm = async (form) => {
     const { data: row, error } = await supabase
       .from('forms')
       .select('lemma_id')
@@ -91,7 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
       .single();
     if (!lemma) return null;
 
-    return await fetchLemmaByCanonical(lemma.canonical);
+    return await fetchFullLemma(lemma.canonical);
   };
 
   const renderEntry = (headword, entry) => {
@@ -109,6 +130,18 @@ document.addEventListener('DOMContentLoaded', () => {
           <span class="example-translation">${escapeHtml(ex.en)}</span>
         </li>`).join('');
 
+      let grammarHtml = '';
+      if (sense.grammar && typeof sense.grammar === 'object') {
+        grammarHtml = `<ul class="grammar-list">`;
+        for (const [key, value] of Object.entries(sense.grammar)) {
+          grammarHtml += `<li class="grammar-item">
+            <span class="grammar-label">${escapeHtml(key)}:</span>
+            ${escapeHtml(value)}
+          </li>`;
+        }
+        grammarHtml += `</ul>`;
+      }
+
       const related = (sense.related || []).map(r => `
         <div class="related-item">
           <span class="related-word">${escapeHtml(r.word)}</span>
@@ -123,6 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <span class="sense-definition">${escapeHtml(sense.definition || '')}</span>
           <div class="section-title">Examples</div>
           <ul class="examples-list">${examples}</ul>
+          ${grammarHtml ? `<div class="section-title">Grammar</div>${grammarHtml}` : ''}
           <div class="section-title">Related</div>
           <div class="related-words-list">${related}</div>
         </div>`;
@@ -146,19 +180,18 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const showResult = async (query = '') => {
-    const q = query.trim().toLowerCase();
-
+    const q = query.trim();
     if (!q) {
       resultsContainer.innerHTML = aboutSection.outerHTML;
       return;
     }
 
-    let html = `<div class="no-result">No entry found for "${escapeHtml(query)}"</div>`;
+    let html = `<div class="no-result">No entry found for "${escapeHtml(q)}"</div>`;
     const kg = isKyrgyz(q);
 
     try {
       if (kg) {
-        let entry = await fetchLemmaByCanonical(q);
+        let entry = await fetchFullLemma(q);
         if (!entry) entry = await fetchLemmaByForm(q);
         if (entry) html = renderEntry(entry.canonical || q, entry);
       } else {
@@ -173,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .eq('id', senses[0].lemma_id)
             .single();
           if (lemma) {
-            const full = await fetchLemmaByCanonical(lemma.canonical);
+            const full = await fetchFullLemma(lemma.canonical);
             if (full) html = renderEntry(lemma.canonical, full);
           }
         }
@@ -184,52 +217,47 @@ document.addEventListener('DOMContentLoaded', () => {
     attachTagFilters();
   };
 
-  const attachTagFilters = () => {
-    $$('[data-filter]').forEach(btn => {
-      btn.onclick = () => {
-        const type = btn.dataset.filter;
-        const val  = btn.dataset.value;
-        alert(`Filter by ${type}: ${val}`);   // replace with real modal logic
-      };
-    });
-  };
-
   randomBtn.onclick = async () => {
-    const word = await getRandomWord();
-    if (word) {
-      searchInput.value = word;
-      await showResult(word);
+    if (!lemmaList.length) await preloadCache();
+    if (!lemmaList.length) return;
+
+    const randomLemma = lemmaList[Math.floor(Math.random() * lemmaList.length)];
+    const entry = await fetchFullLemma(randomLemma.canonical);
+    if (entry) {
+      searchInput.value = entry.canonical;
+      resultsContainer.innerHTML = renderEntry(entry.canonical, entry);
+      attachTagFilters();
     }
   };
 
   const generateExercise = async () => {
-    const { data: pool, error } = await supabase
-      .from('lemmas')
-      .select('canonical')
-      .limit(500);
-    if (error || !pool?.length) return;
+    if (!lemmaList.length) await preloadCache();
+    if (!lemmaList.length) return;
 
-    const correctLemma = pool[Math.floor(Math.random() * pool.length)].canonical;
-    const entry = await fetchLemmaByCanonical(correctLemma);
+    const correct = lemmaList[Math.floor(Math.random() * lemmaList.length)];
+    const entry = await fetchFullLemma(correct.canonical);
     if (!entry?.senses?.[0]) return;
-    const correctAnswer = entry.senses[0].translation;
+    const answer = entry.senses[0].translation;
 
-    const { data: others } = await supabase
-      .from('senses')
-      .select('translation')
-      .limit(200);
-    const distractors = (others || [])
-      .filter(s => s.translation !== correctAnswer)
+    const distractors = lemmaList
+      .filter(l => l.id !== correct.id)
       .sort(() => Math.random() - 0.5)
       .slice(0, 3)
-      .map(s => s.translation);
+      .map(l => l.canonical);
 
-    const options = [correctAnswer, ...distractors].sort(() => Math.random() - 0.5);
+    const distractorEntries = await Promise.all(
+      distractors.map(c => fetchFullLemma(c))
+    );
+    const wrongAnswers = distractorEntries
+      .filter(e => e?.senses?.[0])
+      .map(e => e.senses[0].translation);
+
+    const options = [answer, ...wrongAnswers].sort(() => Math.random() - 0.5);
     const optsHtml = options.map(o => `<div class="answer-option" data-answer="${escapeHtml(o)}">${escapeHtml(o)}</div>`).join('');
 
     const body = exerciseModal.querySelector('#exerciseModalBody');
     body.innerHTML = `
-      <div class="exercise-question">What's the English for <span class="kyrgyz">${escapeHtml(correctLemma)}</span>?</div>
+      <div class="exercise-question">What's the English for <span class="kyrgyz">${escapeHtml(correct.canonical)}</span>?</div>
       <div class="answer-options">${optsHtml}</div>
       <div class="exercise-feedback" style="display:none;"></div>
       <div class="exercise-buttons">
@@ -243,16 +271,16 @@ document.addEventListener('DOMContentLoaded', () => {
     body.querySelectorAll('.answer-option').forEach(opt => {
       opt.onclick = () => {
         const selected = opt.dataset.answer;
-        const correct = selected === correctAnswer;
+        const correct = selected === answer;
         $$('.answer-option').forEach(o => o.classList.remove('selected','correct','incorrect'));
         opt.classList.add('selected', correct ? 'correct' : 'incorrect');
-        if (!correct) body.querySelector(`[data-answer="${correctAnswer}"]`)?.classList.add('correct');
+        if (!correct) body.querySelector(`[data-answer="${answer}"]`)?.classList.add('correct');
 
         const fb = body.querySelector('.exercise-feedback');
         fb.style.display = 'block';
         fb.innerHTML = correct
           ? `<h4>Correct!</h4><p>Well done!</p>`
-          : `<h4>Incorrect</h4><p>The right answer is <strong>${escapeHtml(correctAnswer)}</strong></p>`;
+          : `<h4>Incorrect</h4><p>The right answer is <strong>${escapeHtml(answer)}</strong></p>`;
 
         body.querySelector('.next-btn').onclick = generateExercise;
       };
@@ -266,10 +294,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   title.onclick = () => { searchInput.value = ''; showResult(''); };
 
-  let debounce;
+  let searchTimeout;
   searchInput.addEventListener('input', () => {
-    clearTimeout(debounce);
-    debounce = setTimeout(() => showResult(searchInput.value), 220);
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => showResult(searchInput.value), 300);
   });
 
   keyboardToggleBtn.onclick = () => {
@@ -282,22 +310,26 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!e.target.matches('.key')) return;
     const key = e.target;
     const action = key.dataset.action;
-    if (action === 'backspace') {
-      searchInput.value = searchInput.value.slice(0, -1);
-    } else if (action === 'space') {
-      searchInput.value += ' ';
-    } else {
-      searchInput.value += key.textContent;
-    }
+    if (action === 'backspace') searchInput.value = searchInput.value.slice(0, -1);
+    else if (action === 'space') searchInput.value += ' ';
+    else searchInput.value += key.textContent;
     searchInput.focus();
-    showResult(searchInput.value);
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => showResult(searchInput.value), 100);
   });
 
   closeModal.onclick = () => filterModal.style.display = 'none';
   window.addEventListener('click', e => {
-    if (e.target === filterModal) filterModal.style.display = 'none';
-    if (e.target === exerciseModal) exerciseModal.style.display = 'none';
+    if (e.target === filterModal || e.target === exerciseModal) {
+      filterModal.style.display = exerciseModal.style.display = 'none';
+    }
   });
+
+  const attachTagFilters = () => {
+    $$('[data-filter]').forEach(btn => {
+      btn.onclick = () => alert(`Filter: ${btn.dataset.filter} = ${btn.dataset.value}`);
+    });
+  };
 
   showResult('');
 });
