@@ -222,52 +222,84 @@ document.addEventListener('DOMContentLoaded', async () => {
       </div>`;
   };
 
-const showFilterModal = async (type, valueToFilter = null) => {
-  const titles = { cefr: 'CEFR Levels', pos: 'Parts of Speech', topic: 'Topics' };
-  modalTitle.textContent = titles[type];
+  const showFilterModal = async (type, filterValue = null) => {
+    if (filterValue) {
+      let lemmasToShow = [];
+      if (type === 'cefr') {
+        const { data } = await supabase
+          .from('lemmas')
+          .select('canonical')
+          .eq('cefr', filterValue);
+        lemmasToShow = data || [];
+      } else if (type === 'pos') {
+        const { data: senses } = await supabase
+          .from('senses')
+          .select('lemma_id')
+          .eq('pos', filterValue);
+        if (senses) {
+          const lemmaIds = [...new Set(senses.map(s => s.lemma_id))];
+          const { data } = await supabase
+            .from('lemmas')
+            .select('canonical')
+            .in('id', lemmaIds);
+          lemmasToShow = data || [];
+        }
+      } else if (type === 'topic') {
+        const { data: senses } = await supabase
+          .from('senses')
+          .select('lemma_id')
+          .eq('topic', filterValue);
+        if (senses) {
+          const lemmaIds = [...new Set(senses.map(s => s.lemma_id))];
+          const { data } = await supabase
+            .from('lemmas')
+            .select('canonical')
+            .in('id', lemmaIds);
+          lemmasToShow = data || [];
+        }
+      }
 
-  let items = [];
-  if (valueToFilter) {
-    if (type === 'cefr') {
-      const { data } = await supabase.from('lemmas').select('canonical').eq('cefr', valueToFilter);
-      items = data.map(l => l.canonical);
-    } else if (type === 'pos') {
-      const { data: senses } = await supabase.from('senses').select('lemma_id').eq('pos', valueToFilter);
-      if (senses?.length) {
-        const lemmaIds = [...new Set(senses.map(s => s.lemma_id))];
-        const { data } = await supabase.from('lemmas').select('canonical').in('id', lemmaIds);
-        items = data.map(l => l.canonical);
+      if (!lemmasToShow.length) {
+        modalBody.innerHTML = `<p style="text-align:center;color:var(--text-muted);">No lemmas found for ${escapeHtml(filterValue)}</p>`;
+      } else {
+        const entries = await Promise.all(lemmasToShow.map(l => fetchFullLemma(l.canonical)));
+        modalBody.innerHTML = entries
+          .filter(e => e)
+          .map(e => `<div class="modal-lemma" onclick="showResult('${escapeHtml(e.canonical)}')">${escapeHtml(e.canonical)}</div>`)
+          .join('');
       }
-    } else if (type === 'topic') {
-      const { data: senses } = await supabase.from('senses').select('lemma_id').eq('topic', valueToFilter);
-      if (senses?.length) {
-        const lemmaIds = [...new Set(senses.map(s => s.lemma_id))];
-        const { data } = await supabase.from('lemmas').select('canonical').in('id', lemmaIds);
-        items = data.map(l => l.canonical);
-      }
+
+      modalTitle.textContent = `${filterValue} (${type})`;
+      $('#filterModal').style.display = 'flex';
+      return;
     }
-  } else {
-    const mapItems = filterCache[type];
-    items = mapItems ? Array.from(mapItems.keys()) : [];
-  }
 
-  if (!items.length) {
-    modalBody.innerHTML = `<p style="text-align:center;color:var(--text-muted);">No data available.</p>`;
-  } else {
-    const listHtml = items.map(v => `<li class="filter-item">${escapeHtml(v)}</li>`).join('');
-    modalBody.innerHTML = `<ul class="filter-list">${listHtml}</ul>`;
-  }
+    const titles = { cefr: 'CEFR Levels', pos: 'Parts of Speech', topic: 'Topics' };
+    modalTitle.textContent = titles[type];
 
-  $('#filterModal').style.display = 'flex';
+    const items = filterCache[type];
+    if (!items || items.size === 0) {
+      modalBody.innerHTML = `<p style="text-align:center;color:var(--text-muted);">No data available.</p>`;
+    } else {
+      const listHtml = Array.from(items.entries())
+        .map(([value, count]) => `
+          <li class="filter-item" data-filter-value="${escapeHtml(value)}">
+            <span>${escapeHtml(value)}</span>
+            <span class="filter-count">${count}</span>
+          </li>
+        `).join('');
+      modalBody.innerHTML = `<ul class="filter-list">${listHtml}</ul>`;
+    }
 
-  modalBody.querySelectorAll('.filter-item').forEach(item => {
-    item.onclick = async () => {
-      const selectedValue = item.textContent;
-      await filterAndShow(type, selectedValue);
-      $('#filterModal').style.display = 'none';
-    };
-  });
-};
+    $('#filterModal').style.display = 'flex';
+
+    modalBody.querySelectorAll('.filter-item').forEach(item => {
+      item.onclick = () => {
+        const value = item.dataset.filterValue;
+        showFilterModal(type, value);
+      };
+    });
+  };
 
   const attachTagFilters = () => {
     $$('.tag-btn').forEach(btn => {
