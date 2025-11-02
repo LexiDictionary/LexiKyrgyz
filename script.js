@@ -1,49 +1,51 @@
+// ------------------------------------------------------------
+// GLOBAL $ HELPER — MUST BE AT THE TOP
+// ------------------------------------------------------------
+const $  = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+// ------------------------------------------------------------
+// 1. SUPABASE + GLOBAL CACHE
+// ------------------------------------------------------------
 const SUPABASE_URL = 'https://jvizodlmiiisubatqykg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2aXpvZGxtaWlpc3ViYXRxeWtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NjYxNTYsImV4cCI6MjA3NzI0MjE1Nn0.YD9tMUyQVq7v5gkWq-f_sQfYfD2raq_o7FeOmLjeN7I';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let lemmaCache = new Map();
 let lemmaList = [];
+let filterCache = {
+  cefr: new Map(),
+  pos: new Map(),
+  topic: new Map()
+};
 let isCacheLoading = false;
 
-const preloadCache = async () => {
-  if (isCacheLoading || lemmaList.length > 0) return;
-  isCacheLoading = true;
-
-  const { data, error } = await supabase
-    .from('lemmas')
-    .select('id, canonical, pronunciation, cefr')
-    .limit(1000);
-
-  if (error || !data) {
-    console.error('Cache preload failed:', error);
-    isCacheLoading = false;
-    return;
-  }
-
-  lemmaList = data;
-  isCacheLoading = false;
-};
-
+// ------------------------------------------------------------
+// 2. DOM READY
+// ------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', async () => {
-  await preloadCache();
+  // Hide modals on load
+  $('#filterModal').style.display = 'none';
+  $('#exerciseModal').style.display = 'none';
 
-  const $  = s => document.querySelector(s);
-  const $$ = s => document.querySelectorAll(s);
+  await preloadCache();
 
   const searchInput        = $('#searchInput');
   const resultsContainer   = $('#resultsContainer');
   const title              = $('#title');
   const randomBtn          = $('#randomBtn');
   const exerciseBtn        = $('#exerciseBtn');
-  const filterModal        = $('#filterModal');
+  const modalTitle         = $('#modalTitle');
+  const modalBody          = $('#modalBody');
   const closeModal         = $('#closeModal');
-  const exerciseModal      = $('#exerciseModal');
   const closeExerciseModal = $('#closeExerciseModal');
   const virtualKeyboard    = $('#virtualKeyboard');
   const keyboardToggleBtn  = $('#keyboardToggleBtn');
   const aboutSection       = $('#aboutSection');
 
+  // ------------------------------------------------------------ 
+  // 3. HELPERS
+  // ------------------------------------------------------------
   const escapeHtml = unsafe => unsafe
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -57,16 +59,64 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!raw) return {};
     if (typeof raw === 'object') return raw;
     if (typeof raw !== 'string') return {};
-
     try {
       const cleaned = raw.replace(/\\"/g, '"');
       return JSON.parse(cleaned);
     } catch (e) {
-      console.warn('Failed to parse grammar JSON:', raw);
+      console.warn('Grammar parse failed:', raw);
       return {};
     }
   };
 
+  // ------------------------------------------------------------ 
+  // 4. CACHE PRELOAD
+  // ------------------------------------------------------------
+  const preloadCache = async () => {
+    if (isCacheLoading || lemmaList.length > 0) return;
+    isCacheLoading = true;
+
+    const { data, error } = await supabase
+      .from('lemmas')
+      .select('id, canonical, pronunciation, cefr')
+      .limit(1000);
+
+    if (error || !data) {
+      console.error('Cache preload failed:', error);
+      isCacheLoading = false;
+      return;
+    }
+
+    lemmaList = data;
+    await preloadFilters();
+    isCacheLoading = false;
+  };
+
+  const preloadFilters = async () => {
+    const tables = ['cefr', 'pos', 'topic'];
+    for (const type of tables) {
+      const column = type === 'cefr' ? 'cefr' : type === 'pos' ? 'pos' : 'topic';
+      const table = type === 'topic' ? 'senses' : 'lemmas';
+
+      const { data, error } = await supabase
+        .from(table)
+        .select(column === 'topic' ? 'topic' : column)
+        .not(column, 'is', null);
+
+      if (error || !data) continue;
+
+      const counts = {};
+      data.forEach(row => {
+        const value = row[column] || row.topic;
+        if (value) counts[value] = (counts[value] || 0) + 1;
+      });
+
+      filterCache[type] = new Map(Object.entries(counts).sort((a, b) => b[1] - a[1]));
+    }
+  };
+
+  // ------------------------------------------------------------ 
+  // 5. FETCH LEMMA
+  // ------------------------------------------------------------
   const fetchFullLemma = async (canonical) => {
     if (lemmaCache.has(canonical)) return lemmaCache.get(canonical);
 
@@ -129,14 +179,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     return await fetchFullLemma(lemma.canonical);
   };
 
+  // ------------------------------------------------------------ 
+  // 6. RENDER ENTRY
+  // ------------------------------------------------------------
   const renderEntry = (headword, entry) => {
     const kyrgyzHead = isKyrgyz(headword) ? 'kyrgyz' : '';
 
     const senseHtml = entry.senses.map((sense, i) => {
       const transCls = isKyrgyz(sense.translation) ? 'kyrgyz' : '';
       let tags = '';
-      if (sense.pos)   tags += `<button type="button" class="pos" data-filter="pos" data-value="${sense.pos}">${sense.pos}</button>`;
-      if (sense.topic) tags += `<button type="button" class="topic-tag" data-filter="topic" data-value="${sense.topic}">${sense.topic}</button>`;
+      if (sense.pos)   tags += `<button type="button" class="pos tag-btn" data-type="pos" data-value="${escapeHtml(sense.pos)}">${escapeHtml(sense.pos)}</button>`;
+      if (sense.topic) tags += `<button type="button" class="topic-tag tag-btn" data-type="topic" data-value="${escapeHtml(sense.topic)}">${escapeHtml(sense.topic)}</button>`;
 
       const examples = (sense.examples || []).map(ex => `
         <li class="example-item">
@@ -179,7 +232,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let cefrTag = '';
     if (entry.cefr) {
       cefrTag = `<div class="tags-container" style="position:absolute;right:0;top:0;">
-        <button type="button" class="level-tag" data-filter="cefr" data-value="${entry.cefr}">${entry.cefr.toUpperCase()}</button>
+        <button type="button" class="level-tag tag-btn" data-type="cefr" data-value="${escapeHtml(entry.cefr)}">${escapeHtml(entry.cefr.toUpperCase())}</button>
       </div>`;
     }
 
@@ -193,6 +246,110 @@ document.addEventListener('DOMContentLoaded', async () => {
       </div>`;
   };
 
+  // ------------------------------------------------------------ 
+  // 7. SHOW FILTER MODAL
+  // ------------------------------------------------------------
+  const showFilterModal = (type) => {
+    const titles = { cefr: 'CEFR Levels', pos: 'Parts of Speech', topic: 'Topics' };
+    modalTitle.textContent = titles[type];
+
+    const items = filterCache[type];
+    if (!items || items.size === 0) {
+      modalBody.innerHTML = `<p style="text-align:center;color:var(--text-muted);">No data available.</p>`;
+    } else {
+      const listHtml = Array.from(items.entries())
+        .map(([value, count]) => `
+          <li class="filter-item" data-filter-value="${escapeHtml(value)}">
+            <span>${escapeHtml(value)}</span>
+            <span class="filter-count">${count}</span>
+          </li>
+        `).join('');
+      modalBody.innerHTML = `<ul class="filter-list">${listHtml}</ul>`;
+    }
+
+    $('#filterModal').style.display = 'flex';
+
+    modalBody.querySelectorAll('.filter-item').forEach(item => {
+      item.onclick = () => {
+        const value = item.dataset.filterValue;
+        filterAndShow(type, value);
+        $('#filterModal').style.display = 'none';
+      };
+    });
+  };
+
+  // ------------------------------------------------------------ 
+  // 8. FILTER & SHOW RESULTS
+  // ------------------------------------------------------------
+  const filterAndShow = async (type, value) => {
+    let lemmasToShow = [];
+
+    if (type === 'cefr') {
+      const { data } = await supabase
+        .from('lemmas')
+        .select('canonical')
+        .eq('cefr', value);
+      lemmasToShow = data || [];
+    } else if (type === 'pos') {
+      const { data: senses } = await supabase
+        .from('senses')
+        .select('lemma_id')
+        .eq('pos', value);
+      if (senses) {
+        const lemmaIds = [...new Set(senses.map(s => s.lemma_id))];
+        const { data } = await supabase
+          .from('lemmas')
+          .select('canonical')
+          .in('id', lemmaIds);
+        lemmasToShow = data || [];
+      }
+    } else if (type === 'topic') {
+      const { data: senses } = await supabase
+        .from('senses')
+        .select('lemma_id')
+        .eq('topic', value);
+      if (senses) {
+        const lemmaIds = [...new Set(senses.map(s => s.lemma_id))];
+        const { data } = await supabase
+          .from('lemmas')
+          .select('canonical')
+          .in('id', lemmaIds);
+        lemmasToShow = data || [];
+      }
+    }
+
+    if (lemmasToShow.length === 0) {
+      resultsContainer.innerHTML = `<div class="no-result">No entries found for ${escapeHtml(value)}</div>`;
+      return;
+    }
+
+    const entries = await Promise.all(
+      lemmasToShow.map(l => fetchFullLemma(l.canonical))
+    );
+
+    resultsContainer.innerHTML = entries
+      .filter(e => e)
+      .map(e => renderEntry(e.canonical, e))
+      .join('');
+
+    attachTagFilters();
+  };
+
+  // ------------------------------------------------------------ 
+  // 9. TAG CLICK → OPEN MODAL
+  // ------------------------------------------------------------
+  const attachTagFilters = () => {
+    $$('.tag-btn').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        showFilterModal(btn.dataset.type);
+      };
+    });
+  };
+
+  // ------------------------------------------------------------ 
+  // 10. SEARCH
+  // ------------------------------------------------------------
   const showResult = async (query = '') => {
     const q = query.trim();
     if (!q) {
@@ -231,6 +388,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     attachTagFilters();
   };
 
+  // ------------------------------------------------------------ 
+  // 11. BUTTONS
+  // ------------------------------------------------------------
   randomBtn.onclick = async () => {
     if (!lemmaList.length) await preloadCache();
     if (!lemmaList.length) return;
@@ -244,6 +404,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   };
 
+  exerciseBtn.onclick = generateExercise;
+
+  // ------------------------------------------------------------ 
+  // 12. EXERCISE
+  // ------------------------------------------------------------
   const generateExercise = async () => {
     if (!lemmaList.length) await preloadCache();
     if (!lemmaList.length) return;
@@ -267,7 +432,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const options = [answer, ...wrongAnswers].sort(() => Math.random() - 0.5);
     const optsHtml = options.map(o => `<div class="answer-option" data-answer="${escapeHtml(o)}">${escapeHtml(o)}</div>`).join('');
 
-    const body = exerciseModal.querySelector('#exerciseModalBody');
+    const body = $('#exerciseModalBody');
     body.innerHTML = `
       <div class="exercise-question">What's the English for <span class="kyrgyz">${escapeHtml(correct.canonical)}</span>?</div>
       <div class="answer-options">${optsHtml}</div>
@@ -278,7 +443,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       </div>
     `;
 
-    exerciseModal.style.display = 'block';
+    $('#exerciseModal').style.display = 'block';
 
     body.querySelectorAll('.answer-option').forEach(opt => {
       opt.onclick = () => {
@@ -298,12 +463,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       };
     });
 
-    body.querySelector('.close-btn').onclick = () => exerciseModal.style.display = 'none';
+    body.querySelector('.close-btn').onclick = () => $('#exerciseModal').style.display = 'none';
   };
 
-  exerciseBtn.onclick = generateExercise;
-  closeExerciseModal.onclick = () => exerciseModal.style.display = 'none';
+  closeExerciseModal.onclick = () => $('#exerciseModal').style.display = 'none';
 
+  // ------------------------------------------------------------ 
+  // 13. UI: Title, Search, Keyboard, Close
+  // ------------------------------------------------------------
   title.onclick = () => { searchInput.value = ''; showResult(''); };
 
   let searchTimeout;
@@ -330,18 +497,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     searchTimeout = setTimeout(() => showResult(searchInput.value), 100);
   });
 
-  closeModal.onclick = () => filterModal.style.display = 'none';
+  closeModal.onclick = () => $('#filterModal').style.display = 'none';
+
   window.addEventListener('click', e => {
-    if (e.target === filterModal || e.target === exerciseModal) {
-      filterModal.style.display = exerciseModal.style.display = 'none';
-    }
+    if (e.target === $('#filterModal')) $('#filterModal').style.display = 'none';
+    if (e.target === $('#exerciseModal')) $('#exerciseModal').style.display = 'none';
   });
 
-  const attachTagFilters = () => {
-    $$('[data-filter]').forEach(btn => {
-      btn.onclick = () => alert(`Filter: ${btn.dataset.filter} = ${btn.dataset.value}`);
-    });
-  };
-
+  // Initial
   showResult('');
 });
