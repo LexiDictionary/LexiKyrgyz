@@ -3,6 +3,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 function showFilterList(type, value) {
+  // Prevent errors; implement later if needed
 }
 
 function isKyrgyz(text) {
@@ -31,42 +32,40 @@ function escapeHtml(unsafe) {
 }
 
 async function getRandomWord() {
-  const {  data, error } = await supabase
+  const {  data } = await supabase
     .from('lemmas')
     .select('canonical')
     .limit(1)
     .offset(Math.floor(Math.random() * 1000));
-  if (error || data.length === 0) return null;
-  return data[0].canonical;
+  return data && data.length ? data[0].canonical : null;
 }
 
 async function fetchLemmaByCanonical(canonical) {
-  const {  lemma, error } = await supabase
+  const {  lemma } = await supabase
     .from('lemmas')
     .select('*')
     .eq('canonical', canonical)
     .single();
-  if (error) return null;
+  if (!lemma) return null;
 
-  const {  senses, error: sensesError } = await supabase
+  const {  senses } = await supabase
     .from('senses')
     .select('*')
     .eq('lemma_id', lemma.id)
     .order('id', { ascending: true });
-  if (sensesError) return null;
 
   for (const sense of senses) {
-    const {  examples, error: exError } = await supabase
+    const {  examples } = await supabase
       .from('examples')
       .select('*')
       .eq('sense_id', sense.id);
-    sense.examples = exError ? [] : examples.map(e => ({ kg: e.kg, en: e.en }));
+    sense.examples = examples || [];
 
-    const {  related, error: relError } = await supabase
+    const {  related } = await supabase
       .from('related')
       .select('*')
       .eq('sense_id', sense.id);
-    sense.derivatives = relError ? [] : related.map(r => ({ word: r.word, translation: r.translation }));
+    sense.relatedWords = related || [];
   }
 
   return {
@@ -74,25 +73,24 @@ async function fetchLemmaByCanonical(canonical) {
     pronunciation: lemma.pronunciation || '',
     topic: senses[0]?.topic || '',
     cefr: lemma.cefr || '',
-    forms: [],
     senses: senses
   };
 }
 
 async function fetchLemmaByForm(form) {
-  const {  formMatch, error } = await supabase
+  const {  formMatch } = await supabase
     .from('forms')
     .select('lemma_id')
     .eq('form', form)
     .single();
-  if (error) return null;
+  if (!formMatch) return null;
 
-  const {  lemma, error: leError } = await supabase
+  const {  lemma } = await supabase
     .from('lemmas')
     .select('canonical')
     .eq('id', formMatch.lemma_id)
     .single();
-  if (leError) return null;
+  if (!lemma) return null;
 
   return await fetchLemmaByCanonical(lemma.canonical);
 }
@@ -124,10 +122,10 @@ function renderEntry(lemma, entry) {
         grammar += `</ul>`;
       }
 
-      const derivatives = sense.derivatives.map(der => {
+      const relatedWords = sense.relatedWords.map(rw => {
         return `<div class="derivative-item">
-          <span class="derivative-word">${escapeHtml(der.word)}</span>
-          <div class="derivative-translation">${escapeHtml(der.translation)}</div>
+          <span class="derivative-word">${escapeHtml(rw.word)}</span>
+          <div class="derivative-translation">${escapeHtml(rw.translation)}</div>
         </div>`;
       }).join('');
 
@@ -142,12 +140,12 @@ function renderEntry(lemma, entry) {
           <div class="section-title">Grammar</div>
           ${grammar}
           <div class="section-title">Related Words</div>
-          <div class="related-words-list">${derivatives}</div>
+          <div class="related-words-list">${relatedWords}</div>
         </div>
       `;
     }).join('');
   } else {
-    const sense = entry.senses ? entry.senses[0] : entry;
+    const sense = entry.senses[0];
     const transClass = isKyrgyz(sense.translation) ? 'kyrgyz' : '';
     let tags = '';
     if (sense.pos) tags += `<button class="pos" onclick="showFilterList('pos', '${sense.pos}')">${sense.pos}</button>`;
@@ -169,10 +167,10 @@ function renderEntry(lemma, entry) {
       grammar += `</ul>`;
     }
 
-    const derivatives = sense.derivatives.map(der => {
+    const relatedWords = sense.relatedWords.map(rw => {
       return `<div class="derivative-item">
-        <span class="derivative-word">${escapeHtml(der.word)}</span>
-        <div class="derivative-translation">${escapeHtml(der.translation)}</div>
+        <span class="derivative-word">${escapeHtml(rw.word)}</span>
+        <div class="derivative-translation">${escapeHtml(rw.translation)}</div>
       </div>`;
     }).join('');
 
@@ -186,7 +184,7 @@ function renderEntry(lemma, entry) {
         <div class="section-title">Grammar</div>
         ${grammar}
         <div class="section-title">Related Words</div>
-        <div class="related-words-list">${derivatives}</div>
+        <div class="related-words-list">${relatedWords}</div>
       </div>
     `;
   }
@@ -210,7 +208,7 @@ function renderEntry(lemma, entry) {
 }
 
 async function showResult(query) {
-  const q = query.toLowerCase().trim();
+  const q = query.trim();
   if (!q) {
     resultsContainer.innerHTML = `<div class="about-section"><div class="section-title">About</div><p class="about-content">bla blabla bla</p></div>`;
     return;
@@ -225,34 +223,32 @@ async function showResult(query) {
       lemma = q;
     } else {
       entry = await fetchLemmaByForm(q);
-      if (entry) {
-        lemma = entry.canonical;
-      }
+      if (entry) lemma = entry.canonical;
     }
   } else {
-    const {  matches, error } = await supabase
+    const {  matches } = await supabase
       .from('senses')
       .select('lemma_id, translation')
       .eq('translation', q);
-    if (!error && matches.length > 0) {
+    if (matches && matches.length > 0) {
       const lemmaIds = [...new Set(matches.map(m => m.lemma_id))];
       if (lemmaIds.length === 1) {
-        const {  lemmaData, error: leErr } = await supabase
+        const {  lemmaData } = await supabase
           .from('lemmas')
           .select('canonical')
           .eq('id', lemmaIds[0])
           .single();
-        if (!leErr) {
+        if (lemmaData) {
           entry = await fetchLemmaByCanonical(lemmaData.canonical);
           lemma = lemmaData.canonical;
         }
       } else if (lemmaIds.length > 1) {
-        const {  lemmas, error: lErr } = await supabase
+        const {  lemmas } = await supabase
           .from('lemmas')
           .select('canonical')
           .in('id', lemmaIds);
-        if (!lErr) {
-          let html = `<div class="no-result"><p>Multiple words for "${escapeHtml(query)}":</p><ul class="filter-word-list">`;
+        if (lemmas) {
+          let html = `<div class="no-result"><p>Multiple words for "${escapeHtml(q)}":</p><ul class="filter-word-list">`;
           lemmas.forEach(l => html += `<li class="filter-word-item kyrgyz" data-word="${l.canonical}">${l.canonical}</li>`);
           html += `</ul></div>`;
           resultsContainer.innerHTML = html;
@@ -266,18 +262,24 @@ async function showResult(query) {
   if (entry && lemma) {
     resultsContainer.innerHTML = renderEntry(lemma, entry);
   } else {
-    resultsContainer.innerHTML = `<div class="no-result">No entry found for "${escapeHtml(query)}"</div>`;
+    resultsContainer.innerHTML = `<div class="no-result">No entry found for "${escapeHtml(q)}"</div>`;
   }
 
   attachEventListeners();
 }
 
+function attachEventListeners() {
+  document.querySelectorAll('.filter-word-item').forEach(el => {
+    el.onclick = () => {
+      searchInput.value = el.dataset.word;
+      showResult(el.dataset.word);
+    };
+  });
+}
+
 async function generateExercise() {
-  const {  data, error } = await supabase
-    .from('lemmas')
-    .select('canonical')
-    .limit(1000);
-  if (error || data.length === 0) return;
+  const {  data } = await supabase.from('lemmas').select('canonical').limit(1000);
+  if (!data || data.length === 0) return;
 
   const randomLemma = data[Math.floor(Math.random() * data.length)];
   const entry = await fetchLemmaByCanonical(randomLemma.canonical);
@@ -286,12 +288,12 @@ async function generateExercise() {
   const sense = entry.senses[0];
   const answer = sense.translation;
 
-  const {  allTranslations, err } = await supabase
+  const {  allTranslations } = await supabase
     .from('senses')
     .select('translation')
     .neq('lemma_id', entry.id)
     .limit(100);
-  if (err || allTranslations.length < 3) return;
+  if (!allTranslations || allTranslations.length < 3) return;
 
   const distractors = [];
   const shuffled = allTranslations.sort(() => 0.5 - Math.random());
@@ -347,15 +349,6 @@ async function generateExercise() {
   closeExerciseModal.onclick = () => {
     exerciseModal.style.display = 'none';
   };
-}
-
-function attachEventListeners() {
-  document.querySelectorAll('.filter-word-item').forEach(el => {
-    el.onclick = () => {
-      searchInput.value = el.dataset.word;
-      showResult(el.dataset.word);
-    };
-  });
 }
 
 searchInput.addEventListener('input', (e) => showResult(e.target.value));
