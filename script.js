@@ -2,6 +2,9 @@ const SUPABASE_URL = 'https://jvizodlmiiisubatqykg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2aXpvZGxtaWlpc3ViYXRxeWtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NjYxNTYsImV4cCI6MjA3NzI0MjE1Nn0.YD9tMUyQVq7v5gkWq-f_sQfYfD2raq_o7FeOmLjeN7I';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+function showFilterList(type, value) {
+}
+
 function isKyrgyz(text) {
   return /[\u0400-\u04FF]/.test(text);
 }
@@ -33,14 +36,8 @@ async function getRandomWord() {
     .select('canonical')
     .limit(1)
     .offset(Math.floor(Math.random() * 1000));
-  if (error) return null;
-  return data.length ? data[0].canonical : null;
-}
-
-async function fetchAllCanonicals() {
-  const {  data, error } = await supabase.from('lemmas').select('canonical');
-  if (error) return [];
-  return data.map(d => d.canonical);
+  if (error || data.length === 0) return null;
+  return data[0].canonical;
 }
 
 async function fetchLemmaByCanonical(canonical) {
@@ -128,9 +125,8 @@ function renderEntry(lemma, entry) {
       }
 
       const derivatives = sense.derivatives.map(der => {
-        const wordClass = 'derivative-word';
         return `<div class="derivative-item">
-          <span class="${wordClass}">${escapeHtml(der.word)}</span>
+          <span class="derivative-word">${escapeHtml(der.word)}</span>
           <div class="derivative-translation">${escapeHtml(der.translation)}</div>
         </div>`;
       }).join('');
@@ -174,9 +170,8 @@ function renderEntry(lemma, entry) {
     }
 
     const derivatives = sense.derivatives.map(der => {
-      const wordClass = 'derivative-word';
       return `<div class="derivative-item">
-        <span class="${wordClass}">${escapeHtml(der.word)}</span>
+        <span class="derivative-word">${escapeHtml(der.word)}</span>
         <div class="derivative-translation">${escapeHtml(der.translation)}</div>
       </div>`;
     }).join('');
@@ -391,7 +386,3 @@ document.querySelectorAll('.key').forEach(k => {
     showResult(searchInput.value);
   };
 });
-
-function showFilterList(type, value) {
-  console.log('Filter:', type, value);
-}
