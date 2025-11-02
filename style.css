@@ -261,9 +261,6 @@ body {
 .university-link { color:var(--brand-primary); text-decoration:none; font-weight:600; }
 .university-link:hover { text-decoration:underline; color:var(--brand-accent); }
 
-/* -------------------------------------------------
-   AUTOCOMPLETE DROPDOWN
-   ------------------------------------------------- */
 .autocomplete-wrapper {
   position: relative;
 }
