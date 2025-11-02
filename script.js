@@ -12,8 +12,8 @@ let filterCache = {
 let isCacheLoading = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
-  const filterModal = $('#filterModal');
-  const exerciseModal = $('#exerciseModal');
+  const filterModal = document.getElementById('filterModal');
+  const exerciseModal = document.getElementById('exerciseModal');
   if (filterModal) filterModal.style.display = 'none';
   if (exerciseModal) exerciseModal.style.display = 'none';
 
@@ -27,9 +27,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const title              = $('#title');
   const randomBtn          = $('#randomBtn');
   const exerciseBtn        = $('#exerciseBtn');
+  const filterModalEl      = $('#filterModal');
   const modalTitle         = $('#modalTitle');
   const modalBody          = $('#modalBody');
   const closeModal         = $('#closeModal');
+  const exerciseModalEl    = $('#exerciseModal');
+  const closeExerciseModal = $('#closeExerciseModal');
   const virtualKeyboard    = $('#virtualKeyboard');
   const keyboardToggleBtn  = $('#keyboardToggleBtn');
   const aboutSection       = $('#aboutSection');
@@ -243,13 +246,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       modalBody.innerHTML = `<ul class="filter-list">${listHtml}</ul>`;
     }
 
-    filterModal.style.display = 'flex';
+    filterModalEl.style.display = 'flex';
 
     modalBody.querySelectorAll('.filter-item').forEach(item => {
       item.onclick = () => {
         const value = item.dataset.filterValue;
         filterAndShow(type, value);
-        filterModal.style.display = 'none';
+        filterModalEl.style.display = 'none';
       };
     });
   };
@@ -370,7 +373,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   exerciseBtn.onclick = generateExercise;
-  closeModal.onclick = () => filterModal.style.display = 'none';
 
   const generateExercise = async () => {
     if (!lemmaList.length) await preloadCache();
@@ -395,7 +397,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const options = [answer, ...wrongAnswers].sort(() => Math.random() - 0.5);
     const optsHtml = options.map(o => `<div class="answer-option" data-answer="${escapeHtml(o)}">${escapeHtml(o)}</div>`).join('');
 
-    const body = exerciseModal.querySelector('#exerciseModalBody');
+    const body = exerciseModalEl.querySelector('#exerciseModalBody');
     body.innerHTML = `
       <div class="exercise-question">What's the English for <span class="kyrgyz">${escapeHtml(correct.canonical)}</span>?</div>
       <div class="answer-options">${optsHtml}</div>
@@ -406,7 +408,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       </div>
     `;
 
-    exerciseModal.style.display = 'block';
+    exerciseModalEl.style.display = 'block';
 
     body.querySelectorAll('.answer-option').forEach(opt => {
       opt.onclick = () => {
@@ -426,8 +428,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       };
     });
 
-    body.querySelector('.close-btn').onclick = () => exerciseModal.style.display = 'none';
+    body.querySelector('.close-btn').onclick = () => exerciseModalEl.style.display = 'none';
   };
+
+  closeExerciseModal.onclick = () => exerciseModalEl.style.display = 'none';
 
   title.onclick = () => { searchInput.value = ''; showResult(''); };
 
@@ -455,10 +459,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     searchTimeout = setTimeout(() => showResult(searchInput.value), 100);
   });
 
+  closeModal.onclick = () => filterModalEl.style.display = 'none';
+
   window.addEventListener('click', e => {
-    if (e.target === filterModal || e.target === exerciseModal) {
-      filterModal.style.display = 'none';
-      exerciseModal.style.display = 'none';
+    if (e.target === filterModalEl) {
+      filterModalEl.style.display = 'none';
+    }
+    if (e.target === exerciseModalEl) {
+      exerciseModalEl.style.display = 'none';
     }
   });
 
