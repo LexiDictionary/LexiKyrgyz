@@ -11,7 +11,7 @@ let filterCache = {
 };
 let isCacheLoading = false;
 
-const $  = s => document.querySelector(s);
+const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 
 const escapeHtml = unsafe => {
@@ -26,7 +26,7 @@ const escapeHtml = unsafe => {
 
 const isKyrgyz = text => {
   if (!text) return false;
-  return /[\u0400-\u04FF]/.test(text);
+  return /[\u0400-\u04FF]/.test(String(text));
 };
 
 const safeParseGrammar = raw => {
@@ -49,11 +49,15 @@ async function preloadFilters() {
     const table = type === 'topic' ? 'senses' : 'lemmas';
     const selectCol = column === 'topic' ? 'topic' : column;
     try {
-      const { data, error } = await supabase
+      const resp = await supabase
         .from(table)
         .select(selectCol)
         .not(selectCol, 'is', null);
-      if (error || !data) continue;
+      const data = resp?.data;
+      if (!data) {
+        filterCache[type] = new Map();
+        continue;
+      }
       const counts = {};
       data.forEach(row => {
         const value = row[selectCol] || row.topic;
@@ -62,6 +66,7 @@ async function preloadFilters() {
       filterCache[type] = new Map(Object.entries(counts).sort((a, b) => b[1] - a[1]));
     } catch (e) {
       console.error('preloadFilters error', e);
+      filterCache[type] = new Map();
     }
   }
 }
@@ -98,7 +103,7 @@ async function fetchFullLemma(canonical) {
       .eq('canonical', canonical)
       .single();
     if (e1 || !lemma) return null;
-    let senses;
+    let senses = [];
     try {
       const resp = await supabase
         .from('senses')
@@ -232,45 +237,94 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (virtualKeyboardEl) virtualKeyboardEl.style.display = 'none';
   await preloadCache();
 
-  const searchInput        = $('#searchInput');
-  const resultsContainer   = $('#resultsContainer');
-  const title              = $('#title');
-  const randomBtn          = $('#randomBtn');
-  const exerciseBtn        = $('#exerciseBtn');
-  const modalTitle         = $('#modalTitle');
-  const modalBody          = $('#modalBody');
-  const closeModal         = $('#closeModal');
+  const searchInput = $('#searchInput');
+  const resultsContainer = $('#resultsContainer');
+  const title = $('#title');
+  const randomBtn = $('#randomBtn');
+  const exerciseBtn = $('#exerciseBtn');
+  const modalTitle = $('#modalTitle');
+  const modalBody = $('#modalBody');
+  const closeModal = $('#closeModal');
   const closeExerciseModal = $('#closeExerciseModal');
-  const virtualKeyboard    = $('#virtualKeyboard');
-  const keyboardToggleBtn  = $('#keyboardToggleBtn');
-  const aboutSection       = $('#aboutSection');
-  const exerciseModalBody  = $('#exerciseModalBody');
+  const virtualKeyboard = $('#virtualKeyboard');
+  const keyboardToggleBtn = $('#keyboardToggleBtn');
+  const aboutSection = $('#aboutSection');
+  const exerciseModalBody = $('#exerciseModalBody');
 
-  const showFilterModal = type => {
+  const showFilterModal = async (type, value) => {
     if (!modalTitle || !modalBody) return;
     const titles = { cefr: 'CEFR Levels', pos: 'Parts of Speech', topic: 'Topics' };
     modalTitle.textContent = titles[type] || 'Filters';
-    const items = filterCache[type];
-    if (!items || items.size === 0) {
-      modalBody.innerHTML = `<p style="text-align:center;color:var(--text-muted);">No data available.</p>`;
-    } else {
-      const listHtml = Array.from(items.entries())
-        .map(([value, count]) => `
-          <li class="filter-item" data-filter-value="${escapeHtml(value)}">
-            <span>${escapeHtml(value)}</span>
-            <span class="filter-count">${count}</span>
-          </li>
-        `).join('');
-      modalBody.innerHTML = `<ul class="filter-list">${listHtml}</ul>`;
+    if (!value) {
+      const items = filterCache[type];
+      if (!items || items.size === 0) {
+        modalBody.innerHTML = `<p style="text-align:center;color:var(--text-muted);">No data available.</p>`;
+      } else {
+        const listHtml = Array.from(items.entries())
+          .map(([val, count]) => `
+            <li class="filter-item" data-filter-value="${escapeHtml(val)}" data-filter-type="${escapeHtml(type)}">
+              <span>${escapeHtml(val)}</span>
+              <span class="filter-count">${count}</span>
+            </li>
+          `).join('');
+        modalBody.innerHTML = `<ul class="filter-list">${listHtml}</ul>`;
+        modalBody.querySelectorAll('.filter-item').forEach(item => {
+          item.onclick = () => {
+            const v = item.dataset.filterValue;
+            const t = item.dataset.filterType;
+            showFilterModal(t, v);
+          };
+        });
+      }
+      if (filterModalEl) filterModalEl.style.display = 'flex';
+      return;
     }
-    if (filterModalEl) filterModalEl.style.display = 'flex';
-    modalBody.querySelectorAll('.filter-item').forEach(item => {
-      item.onclick = () => {
-        const value = item.dataset.filterValue;
-        filterAndShow(type, value);
-        if (filterModalEl) filterModalEl.style.display = 'none';
+    let lemmasToShow = [];
+    try {
+      if (type === 'cefr') {
+        const { data } = await supabase.from('lemmas').select('id, canonical').eq('cefr', value);
+        lemmasToShow = data || [];
+      } else if (type === 'pos') {
+        const { data: senses } = await supabase.from('senses').select('lemma_id').eq('pos', value);
+        if (senses) {
+          const lemmaIds = [...new Set(senses.map(s => s.lemma_id))];
+          const { data } = await supabase.from('lemmas').select('id, canonical').in('id', lemmaIds);
+          lemmasToShow = data || [];
+        }
+      } else if (type === 'topic') {
+        const { data: senses } = await supabase.from('senses').select('lemma_id').eq('topic', value);
+        if (senses) {
+          const lemmaIds = [...new Set(senses.map(s => s.lemma_id))];
+          const { data } = await supabase.from('lemmas').select('id, canonical').in('id', lemmaIds);
+          lemmasToShow = data || [];
+        }
+      }
+    } catch (e) {
+      console.error('showFilterModal fetch lemmas error', e);
+    }
+    if (!lemmasToShow || lemmasToShow.length === 0) {
+      modalBody.innerHTML = `<div class="no-result">No entries found for ${escapeHtml(value)}</div>`;
+      if (filterModalEl) filterModalEl.style.display = 'flex';
+      return;
+    }
+    const listHtml = (lemmasToShow || []).map(l => `
+      <li class="filter-lemma-item" data-canonical="${escapeHtml(l.canonical)}" data-lemma-id="${escapeHtml(l.id)}" style="padding:12px 10px;cursor:pointer;border-bottom:1px solid var(--border-color);">
+        ${escapeHtml(l.canonical)}
+      </li>
+    `).join('');
+    modalBody.innerHTML = `<ul class="filter-lemma-list">${listHtml}</ul>`;
+    modalBody.querySelectorAll('.filter-lemma-item').forEach(item => {
+      item.onclick = async () => {
+        const canonical = item.dataset.canonical;
+        const entry = await fetchFullLemma(canonical);
+        if (entry && resultsContainer) {
+          resultsContainer.innerHTML = renderEntry(entry.canonical, entry);
+          attachTagFilters();
+          if (filterModalEl) filterModalEl.style.display = 'none';
+        }
       };
     });
+    if (filterModalEl) filterModalEl.style.display = 'flex';
   };
 
   const filterAndShow = async (type, value) => {
@@ -312,7 +366,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       btn.onclick = e => {
         e.stopPropagation();
         const type = btn.dataset.type;
-        showFilterModal(type);
+        const value = btn.dataset.value;
+        if (type && value) {
+          showFilterModal(type, value);
+        } else if (type) {
+          showFilterModal(type);
+        }
       };
     });
   };
@@ -322,6 +381,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const q = String(query || '').trim();
     if (!q) {
       resultsContainer.innerHTML = aboutSection.outerHTML;
+      attachTagFilters();
       return;
     }
     let html = `<div class="no-result">No entry found for "${escapeHtml(q)}"</div>`;
@@ -349,6 +409,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else if (senses?.length > 1) {
           const uniqueIds = [...new Set(senses.map(s => s.lemma_id))];
           const { data: lemmas } = await supabase.from('lemmas').select('canonical').in('id', uniqueIds).limit(20);
+          if (lemmas && lemmas.length) {
+            const entries = await Promise.all(lemmas.map(l => fetchFullLemma(l.canonical)));
+            html = entries.filter(e => e).map(e => renderEntry(e.canonical, e)).join('');
+          }
+        } else {
+          const { data: lemmas } = await supabase.from('lemmas').select('canonical').ilike('canonical', `%${q}%`).limit(20);
           if (lemmas && lemmas.length) {
             const entries = await Promise.all(lemmas.map(l => fetchFullLemma(l.canonical)));
             html = entries.filter(e => e).map(e => renderEntry(e.canonical, e)).join('');
@@ -403,12 +469,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       opt.onclick = () => {
         const selected = opt.dataset.answer;
         const isCorrect = selected === answer;
-        $$('.answer-option').forEach(o => o.classList.remove('selected','correct','incorrect'));
+        $$('.answer-option').forEach(o => o.classList.remove('selected', 'correct', 'incorrect'));
         opt.classList.add('selected', isCorrect ? 'correct' : 'incorrect');
-        if (!isCorrect) exerciseModalBody.querySelector(`[data-answer="${CSS.escape(answer)}"]`)?.classList.add('correct');
+        if (!isCorrect) {
+          const match = Array.from(exerciseModalBody.querySelectorAll('.answer-option')).find(a => a.dataset.answer === answer);
+          if (match) match.classList.add('correct');
+        }
         const fb = exerciseModalBody.querySelector('.exercise-feedback');
-        fb.style.display = 'block';
-        fb.innerHTML = isCorrect ? `<h4>Correct!</h4><p>Well done!</p>` : `<h4>Incorrect</h4><p>The right answer is <strong>${escapeHtml(answer)}</strong></p>`;
+        if (fb) {
+          fb.style.display = 'block';
+          fb.innerHTML = isCorrect ? `<h4>Correct!</h4><p>Well done!</p>` : `<h4>Incorrect</h4><p>The right answer is <strong>${escapeHtml(answer)}</strong></p>`;
+        }
         const nextBtn = exerciseModalBody.querySelector('.next-btn');
         if (nextBtn) nextBtn.onclick = generateExercise;
       };
