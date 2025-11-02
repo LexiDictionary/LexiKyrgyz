@@ -413,25 +413,25 @@ body {
   margin-top: 10px;
 }
 
-.derivative-item {
+.related-words-item {
   display: flex;
   flex-direction: column;
   min-width: 135px;
 }
 
-.derivative-word {
+.related-words-word {
   font-weight: 600;
   color: var(--text-primary);
 }
 
-.derivative-word.linkable {
+.related-words-word.linkable {
   color: var(--brand-primary);
   text-decoration: underline;
   text-decoration-thickness: 1.3px;
   cursor: pointer;
 }
 
-.derivative-translation {
+.related-words-translation {
   font-size: 0.92rem;
   color: var(--text-muted);
   margin-top: 3px;
