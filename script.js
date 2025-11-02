@@ -12,8 +12,10 @@ let filterCache = {
 let isCacheLoading = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
-  $('#filterModal').style.display = 'none';
-  $('#exerciseModal').style.display = 'none';
+  const filterModal = $('#filterModal');
+  const exerciseModal = $('#exerciseModal');
+  if (filterModal) filterModal.style.display = 'none';
+  if (exerciseModal) exerciseModal.style.display = 'none';
 
   await preloadCache();
 
@@ -25,12 +27,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const title              = $('#title');
   const randomBtn          = $('#randomBtn');
   const exerciseBtn        = $('#exerciseBtn');
-  const filterModal        = $('#filterModal');
   const modalTitle         = $('#modalTitle');
   const modalBody          = $('#modalBody');
   const closeModal         = $('#closeModal');
-  const exerciseModal      = $('#exerciseModal');
-  const closeExerciseModal = $('#closeExerciseModal');
   const virtualKeyboard    = $('#virtualKeyboard');
   const keyboardToggleBtn  = $('#keyboardToggleBtn');
   const aboutSection       = $('#aboutSection');
@@ -371,7 +370,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   exerciseBtn.onclick = generateExercise;
-  closeExerciseModal.onclick = () => exerciseModal.style.display = 'none';
+  closeModal.onclick = () => filterModal.style.display = 'none';
 
   const generateExercise = async () => {
     if (!lemmaList.length) await preloadCache();
@@ -456,10 +455,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     searchTimeout = setTimeout(() => showResult(searchInput.value), 100);
   });
 
-  closeModal.onclick = () => filterModal.style.display = 'none';
   window.addEventListener('click', e => {
     if (e.target === filterModal || e.target === exerciseModal) {
-      filterModal.style.display = exerciseModal.style.display = 'none';
+      filterModal.style.display = 'none';
+      exerciseModal.style.display = 'none';
     }
   });
 
