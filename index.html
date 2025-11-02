@@ -7,6 +7,10 @@
   <link rel="stylesheet" href="style.css" />
   <link href="https://fonts.googleapis.com/css2?family=Source+Serif+Pro:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script data-goatcounter="https://lexidictionary.goatcounter.com/count"
+            async src="//gc.zgo.at/count.js"></script>
+  
 </head>
 <body>
   <div class="dictionary-wrapper">
@@ -19,14 +23,11 @@
 
     <div class="control-bar">
       <div class="search-container">
-        <div class="autocomplete-wrapper">
-          <input type="text" class="search-input" id="searchInput" placeholder="Search in Kyrgyz or English…" autocomplete="off">
-          <div class="autocomplete-dropdown" id="autocompleteDropdown"></div>
-        </div>
+        <input type="text" class="search-input" id="searchInput" placeholder="Search in Kyrgyz or English…" autocomplete="off">
         <div class="button-group">
-          <button type="button" class="random-btn" id="randomBtn">Random Word</button>
-          <button type="button" class="exercise-btn" id="exerciseBtn">Test Yourself</button>
-          <button type="button" class="keyboard-toggle-btn" id="keyboardToggleBtn">Show Keyboard</button>
+          <button type="button" class="random-btn" id="randomBtn">🎲 Random Word</button>
+          <button type="button" class="exercise-btn" id="exerciseBtn">🤓 Test Yourself</button>
+          <button type="button" class="keyboard-toggle-btn" id="keyboardToggleBtn">⌨️ Show Keyboard</button>
         </div>
 
         <div class="virtual-keyboard" id="virtualKeyboard" style="display: none;">
