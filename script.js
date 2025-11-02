@@ -12,6 +12,9 @@ let filterCache = {
 let isCacheLoading = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
+  $('#filterModal').style.display = 'none';
+  $('#exerciseModal').style.display = 'none';
+
   await preloadCache();
 
   const $  = s => document.querySelector(s);
