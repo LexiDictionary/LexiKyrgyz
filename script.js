@@ -26,7 +26,7 @@ const preloadCache = async () => {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await preloadCache(); // start preloading
+  await preloadCache();
 
   const $  = s => document.querySelector(s);
   const $$ = s => document.querySelectorAll(s);
@@ -53,10 +53,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const isKyrgyz = text => /[\u0400-\u04FF]/.test(text);
 
-  const fetchFullLemma = async (canonical) => {
-    if (lemmaCache.has(canonical)) {
-      return lemmaCache.get(canonical);
+  const safeParseGrammar = (raw) => {
+    if (!raw) return {};
+    if (typeof raw === 'object') return raw;
+    if (typeof raw !== 'string') return {};
+
+    try {
+      const cleaned = raw.replace(/\\"/g, '"');
+      return JSON.parse(cleaned);
+    } catch (e) {
+      console.warn('Failed to parse grammar JSON:', raw);
+      return {};
     }
+  };
+
+  const fetchFullLemma = async (canonical) => {
+    if (lemmaCache.has(canonical)) return lemmaCache.get(canonical);
 
     const { data: lemma, error: e1 } = await supabase
       .from('lemmas')
@@ -84,6 +96,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         .select('word,translation')
         .eq('sense_id', sense.id);
       sense.related = related || [];
+
+      sense.grammar = safeParseGrammar(sense.grammar);
     }
 
     const entry = {
@@ -131,7 +145,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         </li>`).join('');
 
       let grammarHtml = '';
-      if (sense.grammar && typeof sense.grammar === 'object') {
+      if (Object.keys(sense.grammar).length > 0) {
         grammarHtml = `<ul class="grammar-list">`;
         for (const [key, value] of Object.entries(sense.grammar)) {
           grammarHtml += `<li class="grammar-item">
@@ -221,8 +235,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!lemmaList.length) await preloadCache();
     if (!lemmaList.length) return;
 
-    const randomLemma = lemmaList[Math.floor(Math.random() * lemmaList.length)];
-    const entry = await fetchFullLemma(randomLemma.canonical);
+    const rand = lemmaList[Math.floor(Math.random() * lemmaList.length)];
+    const entry = await fetchFullLemma(rand.canonical);
     if (entry) {
       searchInput.value = entry.canonical;
       resultsContainer.innerHTML = renderEntry(entry.canonical, entry);
@@ -245,10 +259,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       .slice(0, 3)
       .map(l => l.canonical);
 
-    const distractorEntries = await Promise.all(
-      distractors.map(c => fetchFullLemma(c))
-    );
-    const wrongAnswers = distractorEntries
+    const wrong = await Promise.all(distractors.map(c => fetchFullLemma(c)));
+    const wrongAnswers = wrong
       .filter(e => e?.senses?.[0])
       .map(e => e.senses[0].translation);
 
