@@ -505,7 +505,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     keyboardToggleBtn.onclick = () => {
       const hidden = virtualKeyboard.style.display === 'none' || virtualKeyboard.style.display === '';
       virtualKeyboard.style.display = hidden ? 'block' : 'none';
-      keyboardToggleBtn.textContent = hidden ? 'Hide Keyboard' : 'Show Keyboard';
+      keyboardToggleBtn.textContent = hidden ? '⌨️ Hide Keyboard' : '⌨️ Show Keyboard';
     };
   }
 
