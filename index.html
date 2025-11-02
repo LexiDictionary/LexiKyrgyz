@@ -13,7 +13,7 @@
     <header class="dictionary-header">
       <div class="header-content">
         <h1 id="title">LexiKyrgyz</h1>
-        <p class="tagline">Kyrgyz → English learner's dictionary</p>
+        <p class="tagline">Kyrgyz to English learner's dictionary</p>
       </div>
     </header>
 
@@ -21,65 +21,33 @@
       <div class="search-container">
         <input type="text" class="search-input" id="searchInput" placeholder="Search in Kyrgyz or English…" autocomplete="off">
         <div class="button-group">
-          <button class="random-btn" id="randomBtn">🎲 Random Word</button>
-          <button class="exercise-btn" id="exerciseBtn">🤓 Test Yourself</button>
-          <button class="keyboard-toggle-btn" id="keyboardToggleBtn">Show Keyboard</button>
+          <button type="button" class="random-btn" id="randomBtn">Random Word</button>
+          <button type="button" class="exercise-btn" id="exerciseBtn">Test Yourself</button>
+          <button type="button" class="keyboard-toggle-btn" id="keyboardToggleBtn">Show Keyboard</button>
         </div>
 
         <div class="virtual-keyboard" id="virtualKeyboard" style="display: none;">
           <div class="keyboard-content">
             <div class="keyboard-row">
-              <button class="key">й</button>
-              <button class="key">ц</button>
-              <button class="key">у</button>
-              <button class="key">к</button>
-              <button class="key">е</button>
-              <button class="key">н</button>
-              <button class="key">г</button>
-              <button class="key">ш</button>
-              <button class="key">ү</button>
-              <button class="key">з</button>
+              <button class="key">й</button><button class="key">ц</button><button class="key">у</button><button class="key">к</button><button class="key">е</button>
+              <button class="key">н</button><button class="key">г</button><button class="key">ш</button><button class="key">ү</button><button class="key">з</button>
             </div>
             <div class="keyboard-row">
-              <button class="key">х</button>
-              <button class="key">ъ</button>
-              <button class="key">ф</button>
-              <button class="key">ы</button>
-              <button class="key">в</button>
-              <button class="key">а</button>
-              <button class="key">п</button>
-              <button class="key">р</button>
-              <button class="key">о</button>
-              <button class="key">л</button>
+              <button class="key">х</button><button class="key">ъ</button><button class="key">ф</button><button class="key">ы</button><button class="key">в</button>
+              <button class="key">а</button><button class="key">п</button><button class="key">р</button><button class="key">о</button><button class="key">л</button>
             </div>
             <div class="keyboard-row">
-              <button class="key">д</button>
-              <button class="key">ж</button>
-              <button class="key">э</button>
-              <button class="key">я</button>
-              <button class="key">ч</button>
-              <button class="key">с</button>
-              <button class="key">м</button>
-              <button class="key">и</button>
-              <button class="key">т</button>
-              <button class="key">ь</button>
+              <button class="key">д</button><button class="key">ж</button><button class="key">э</button><button class="key">я</button><button class="key">ч</button>
+              <button class="key">с</button><button class="key">м</button><button class="key">и</button><button class="key">т</button><button class="key">ь</button>
             </div>
             <div class="keyboard-row">
-              <button class="key">б</button>
-              <button class="key">ю</button>
-              <button class="key">ө</button>
-              <button class="key">ң</button>
-              <button class="key">ё</button>
-              <button class="key">ғ</button>
-              <button class="key">җ</button>
-              <button class="key">һ</button>
-              <button class="key">ў</button>
-              <button class="key">қ</button>
+              <button class="key">б</button><button class="key">ю</button><button class="key">ө</button><button class="key">ң</button><button class="key">ё</button>
+              <button class="key">ғ</button><button class="key">җ</button><button class="key">һ</button><button class="key">ў</button><button class="key">қ</button>
             </div>
             <div class="keyboard-row">
               <button class="key">щ</button>
               <button class="key wide" data-action="space">Space</button>
-              <button class="key" data-action="backspace">⌫</button>
+              <button class="key" data-action="backspace">Backspace</button>
             </div>
           </div>
         </div>
@@ -96,8 +64,8 @@
     <div class="filter-modal" id="filterModal">
       <div class="modal-content">
         <div class="modal-header">
-          <h3 id="modalTitle">Nouns</h3>
-          <button class="close-modal" id="closeModal">×</button>
+          <h3 id="modalTitle">Filters</h3>
+          <button type="button" class="close-modal" id="closeModal">x</button>
         </div>
         <div class="modal-body" id="modalBody"></div>
       </div>
@@ -105,9 +73,9 @@
 
     <div class="exercise-modal" id="exerciseModal">
       <div class="modal-content">
-        <div class="modal-header"> 
+        <div class="modal-header">
           <h3>Vocabulary Exercise</h3>
-          <button class="close-modal" id="closeExerciseModal">×</button>
+          <button type="button" class="close-modal" id="closeExerciseModal">x</button>
         </div>
         <div class="modal-body" id="exerciseModalBody"></div>
       </div>
@@ -118,6 +86,6 @@
     </footer>
   </div>
 
-  <script src="script.js"></script>
+  <script src="script.js" defer></script>
 </body>
 </html>
