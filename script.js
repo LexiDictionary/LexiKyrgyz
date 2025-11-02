@@ -1,3 +1,6 @@
+// ------------------------------------------------------------
+// 1. SUPABASE + GLOBAL CACHE
+// ------------------------------------------------------------
 const SUPABASE_URL = 'https://jvizodlmiiisubatqykg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2aXpvZGxtaWlpc3ViYXRxeWtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NjYxNTYsImV4cCI6MjA3NzI0MjE1Nn0.YD9tMUyQVq7v5gkWq-f_sQfYfD2raq_o7FeOmLjeN7I';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -11,9 +14,13 @@ let filterCache = {
 };
 let isCacheLoading = false;
 
+// ------------------------------------------------------------
+// 2. DOM READY
+// ------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', async () => {
-  const filterModal = document.getElementById('filterModal');
-  const exerciseModal = document.getElementById('exerciseModal');
+  // HIDE MODALS ON LOAD
+  const filterModal = $('#filterModal');
+  const exerciseModal = $('#exerciseModal');
   if (filterModal) filterModal.style.display = 'none';
   if (exerciseModal) exerciseModal.style.display = 'none';
 
@@ -27,16 +34,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   const title              = $('#title');
   const randomBtn          = $('#randomBtn');
   const exerciseBtn        = $('#exerciseBtn');
-  const filterModalEl      = $('#filterModal');
   const modalTitle         = $('#modalTitle');
   const modalBody          = $('#modalBody');
   const closeModal         = $('#closeModal');
-  const exerciseModalEl    = $('#exerciseModal');
   const closeExerciseModal = $('#closeExerciseModal');
   const virtualKeyboard    = $('#virtualKeyboard');
   const keyboardToggleBtn  = $('#keyboardToggleBtn');
   const aboutSection       = $('#aboutSection');
 
+  // ------------------------------------------------------------ 
+  // 3. HELPERS
+  // ------------------------------------------------------------
   const escapeHtml = unsafe => unsafe
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -59,6 +67,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   };
 
+  // ------------------------------------------------------------ 
+  // 4. CACHE PRELOAD
+  // ------------------------------------------------------------
   const preloadCache = async () => {
     if (isCacheLoading || lemmaList.length > 0) return;
     isCacheLoading = true;
@@ -102,6 +113,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   };
 
+  // ------------------------------------------------------------ 
+  // 5. FETCH LEMMA
+  // ------------------------------------------------------------
   const fetchFullLemma = async (canonical) => {
     if (lemmaCache.has(canonical)) return lemmaCache.get(canonical);
 
@@ -164,6 +178,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     return await fetchFullLemma(lemma.canonical);
   };
 
+  // ------------------------------------------------------------ 
+  // 6. RENDER ENTRY
+  // ------------------------------------------------------------
   const renderEntry = (headword, entry) => {
     const kyrgyzHead = isKyrgyz(headword) ? 'kyrgyz' : '';
 
@@ -228,6 +245,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       </div>`;
   };
 
+  // ------------------------------------------------------------ 
+  // 7. SHOW FILTER MODAL
+  // ------------------------------------------------------------
   const showFilterModal = (type) => {
     const titles = { cefr: 'CEFR Levels', pos: 'Parts of Speech', topic: 'Topics' };
     modalTitle.textContent = titles[type];
@@ -246,50 +266,38 @@ document.addEventListener('DOMContentLoaded', async () => {
       modalBody.innerHTML = `<ul class="filter-list">${listHtml}</ul>`;
     }
 
-    filterModalEl.style.display = 'flex';
+    filterModal.style.display = 'flex';
 
     modalBody.querySelectorAll('.filter-item').forEach(item => {
       item.onclick = () => {
         const value = item.dataset.filterValue;
         filterAndShow(type, value);
-        filterModalEl.style.display = 'none';
+        filterModal.style.display = 'none';
       };
     });
   };
 
+  // ------------------------------------------------------------ 
+  // 8. FILTER & SHOW
+  // ------------------------------------------------------------
   const filterAndShow = async (type, value) => {
     let lemmasToShow = [];
 
     if (type === 'cefr') {
-      const { data } = await supabase
-        .from('lemmas')
-        .select('canonical')
-        .eq('cefr', value);
+      const { data } = await supabase.from('lemmas').select('canonical').eq('cefr', value);
       lemmasToShow = data || [];
     } else if (type === 'pos') {
-      const { data: senses } = await supabase
-        .from('senses')
-        .select('lemma_id')
-        .eq('pos', value);
+      const { data: senses } = await supabase.from('senses').select('lemma_id').eq('pos', value);
       if (senses) {
         const lemmaIds = [...new Set(senses.map(s => s.lemma_id))];
-        const { data } = await supabase
-          .from('lemmas')
-          .select('canonical')
-          .in('id', lemmaIds);
+        const { data } = await supabase.from('lemmas').select('canonical').in('id', lemmaIds);
         lemmasToShow = data || [];
       }
     } else if (type === 'topic') {
-      const { data: senses } = await supabase
-        .from('senses')
-        .select('lemma_id')
-        .eq('topic', value);
+      const { data: senses } = await supabase.from('senses').select('lemma_id').eq('topic', value);
       if (senses) {
         const lemmaIds = [...new Set(senses.map(s => s.lemma_id))];
-        const { data } = await supabase
-          .from('lemmas')
-          .select('canonical')
-          .in('id', lemmaIds);
+        const { data } = await supabase.from('lemmas').select('canonical').in('id', lemmaIds);
         lemmasToShow = data || [];
       }
     }
@@ -299,28 +307,26 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    const entries = await Promise.all(
-      lemmasToShow.map(l => fetchFullLemma(l.canonical))
-    );
-
-    resultsContainer.innerHTML = entries
-      .filter(e => e)
-      .map(e => renderEntry(e.canonical, e))
-      .join('');
-
+    const entries = await Promise.all(lemmasToShow.map(l => fetchFullLemma(l.canonical)));
+    resultsContainer.innerHTML = entries.filter(e => e).map(e => renderEntry(e.canonical, e)).join('');
     attachTagFilters();
   };
 
+  // ------------------------------------------------------------ 
+  // 9. TAG FILTERS
+  // ------------------------------------------------------------
   const attachTagFilters = () => {
     $$('.tag-btn').forEach(btn => {
       btn.onclick = (e) => {
         e.stopPropagation();
-        const type = btn.dataset.type;
-        showFilterModal(type);
+        showFilterModal(btn.dataset.type);
       };
     });
   };
 
+  // ------------------------------------------------------------ 
+  // 10. SEARCH
+  // ------------------------------------------------------------
   const showResult = async (query = '') => {
     const q = query.trim();
     if (!q) {
@@ -337,16 +343,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!entry) entry = await fetchLemmaByForm(q);
         if (entry) html = renderEntry(entry.canonical || q, entry);
       } else {
-        const { data: senses } = await supabase
-          .from('senses')
-          .select('lemma_id, translation')
-          .ilike('translation', q);
+        const { data: senses } = await supabase.from('senses').select('lemma_id, translation').ilike('translation', q);
         if (senses?.length === 1) {
-          const { data: lemma } = await supabase
-            .from('lemmas')
-            .select('canonical')
-            .eq('id', senses[0].lemma_id)
-            .single();
+          const { data: lemma } = await supabase.from('lemmas').select('canonical').eq('id', senses[0].lemma_id).single();
           if (lemma) {
             const full = await fetchFullLemma(lemma.canonical);
             if (full) html = renderEntry(lemma.canonical, full);
@@ -359,10 +358,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     attachTagFilters();
   };
 
+  // ------------------------------------------------------------ 
+  // 11. BUTTONS
+  // ------------------------------------------------------------
   randomBtn.onclick = async () => {
     if (!lemmaList.length) await preloadCache();
     if (!lemmaList.length) return;
-
     const rand = lemmaList[Math.floor(Math.random() * lemmaList.length)];
     const entry = await fetchFullLemma(rand.canonical);
     if (entry) {
@@ -374,6 +375,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   exerciseBtn.onclick = generateExercise;
 
+  // ------------------------------------------------------------ 
+  // 12. EXERCISE
+  // ------------------------------------------------------------
   const generateExercise = async () => {
     if (!lemmaList.length) await preloadCache();
     if (!lemmaList.length) return;
@@ -383,21 +387,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!entry?.senses?.[0]) return;
     const answer = entry.senses[0].translation;
 
-    const distractors = lemmaList
-      .filter(l => l.id !== correct.id)
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 3)
-      .map(l => l.canonical);
-
+    const distractors = lemmaList.filter(l => l.id !== correct.id).sort(() => Math.random() - 0.5).slice(0, 3).map(l => l.canonical);
     const wrong = await Promise.all(distractors.map(c => fetchFullLemma(c)));
-    const wrongAnswers = wrong
-      .filter(e => e?.senses?.[0])
-      .map(e => e.senses[0].translation);
+    const wrongAnswers = wrong.filter(e => e?.senses?.[0]).map(e => e.senses[0].translation);
 
     const options = [answer, ...wrongAnswers].sort(() => Math.random() - 0.5);
     const optsHtml = options.map(o => `<div class="answer-option" data-answer="${escapeHtml(o)}">${escapeHtml(o)}</div>`).join('');
 
-    const body = exerciseModalEl.querySelector('#exerciseModalBody');
+    const body = exerciseModal.querySelector('#exerciseModalBody');
     body.innerHTML = `
       <div class="exercise-question">What's the English for <span class="kyrgyz">${escapeHtml(correct.canonical)}</span>?</div>
       <div class="answer-options">${optsHtml}</div>
@@ -408,7 +405,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       </div>
     `;
 
-    exerciseModalEl.style.display = 'block';
+    exerciseModal.style.display = 'block';
 
     body.querySelectorAll('.answer-option').forEach(opt => {
       opt.onclick = () => {
@@ -428,11 +425,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       };
     });
 
-    body.querySelector('.close-btn').onclick = () => exerciseModalEl.style.display = 'none';
+    body.querySelector('.close-btn').onclick = () => exerciseModal.style.display = 'none';
   };
 
-  closeExerciseModal.onclick = () => exerciseModalEl.style.display = 'none';
+  closeExerciseModal.onclick = () => exerciseModal.style.display = 'none';
 
+  // ------------------------------------------------------------ 
+  // 13. UI
+  // ------------------------------------------------------------
   title.onclick = () => { searchInput.value = ''; showResult(''); };
 
   let searchTimeout;
@@ -459,16 +459,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     searchTimeout = setTimeout(() => showResult(searchInput.value), 100);
   });
 
-  closeModal.onclick = () => filterModalEl.style.display = 'none';
+  closeModal.onclick = () => filterModal.style.display = 'none';
 
   window.addEventListener('click', e => {
-    if (e.target === filterModalEl) {
-      filterModalEl.style.display = 'none';
-    }
-    if (e.target === exerciseModalEl) {
-      exerciseModalEl.style.display = 'none';
-    }
+    if (e.target === filterModal) filterModal.style.display = 'none';
+    if (e.target === exerciseModal) exerciseModal.style.display = 'none';
   });
 
+  // Start
   showResult('');
 });
