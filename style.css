@@ -163,11 +163,21 @@ body {
 .related-word { font-weight:600; color:var(--text-primary); }
 .related-translation { font-size:.92rem; color:var(--text-muted); margin-top:3px; }
 
-.filter-modal,.exercise-modal {
-  display:none; position:fixed; z-index:1000; left:0; top:0;
-  width:100%; height:100%; background:rgba(0,0,0,.55); backdrop-filter:blur(5px);
+.filter-modal,
+.exercise-modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(5px);
+  justify-content: center;
+  align-items: center;
 }
-.filter-modal { display: flex; justify-content: center; align-items: center; }
+
 .modal-content {
   background:white; margin:6% auto; padding:30px; border-radius:var(--radius-md);
   width:90%; max-width:500px; max-height:80vh; overflow-y:auto;
