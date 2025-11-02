@@ -114,7 +114,7 @@ function renderEntry(lemma, entry) {
           <ul class="examples-list">${examples}</ul>
           <div class="section-title">Grammar</div>
           ${grammar}
-          <div class="section-title">Related Words</div>
+          <div class="section-title">Related</div>
           <div class="related-words-list">${related}</div>
         </div>
       `;
@@ -158,7 +158,7 @@ function renderEntry(lemma, entry) {
         <ul class="examples-list">${examples}</ul>
         <div class="section-title">Grammar</div>
         ${grammar}
-        <div class="section-title">Related Words</div>
+        <div class="section-title">Related</div>
         <div class="related-words-list">${related}</div>
       </div>
     `;
