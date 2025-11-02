@@ -47,7 +47,7 @@ async function fetchLemmaByCanonical(canonical) {
 
     // ✅ CORRECT TABLE: 'related'
     const {  related } = await supabase.from('related').select('*').eq('sense_id', sense.id);
-    sense.derivatives = related ? related.map(r => ({ word: r.word, translation: r.translation })) : [];
+    sense.related = related ? related.map(r => ({ word: r.word, translation: r.translation })) : [];
   }
 
   return {
@@ -97,10 +97,10 @@ function renderEntry(lemma, entry) {
         grammar += `</ul>`;
       }
 
-      const derivatives = sense.derivatives.map(der => {
-        return `<div class="derivative-item">
-          <span class="derivative-word">${escapeHtml(der.word)}</span>
-          <div class="derivative-translation">${escapeHtml(der.translation)}</div>
+      const related = sense.related.map(der => {
+        return `<div class="related-item">
+          <span class="related-word">${escapeHtml(der.word)}</span>
+          <div class="related-translation">${escapeHtml(der.translation)}</div>
         </div>`;
       }).join('');
 
@@ -115,7 +115,7 @@ function renderEntry(lemma, entry) {
           <div class="section-title">Grammar</div>
           ${grammar}
           <div class="section-title">Related Words</div>
-          <div class="related-words-list">${derivatives}</div>
+          <div class="related-words-list">${related}</div>
         </div>
       `;
     }).join('');
@@ -142,10 +142,10 @@ function renderEntry(lemma, entry) {
       grammar += `</ul>`;
     }
 
-    const derivatives = sense.derivatives.map(der => {
-      return `<div class="derivative-item">
-        <span class="derivative-word">${escapeHtml(der.word)}</span>
-        <div class="derivative-translation">${escapeHtml(der.translation)}</div>
+    const related = sense.related.map(der => {
+      return `<div class="related-item">
+        <span class="related-word">${escapeHtml(der.word)}</span>
+        <div class="related-translation">${escapeHtml(der.translation)}</div>
       </div>`;
     }).join('');
 
@@ -159,7 +159,7 @@ function renderEntry(lemma, entry) {
         <div class="section-title">Grammar</div>
         ${grammar}
         <div class="section-title">Related Words</div>
-        <div class="related-words-list">${derivatives}</div>
+        <div class="related-words-list">${related}</div>
       </div>
     `;
   }
