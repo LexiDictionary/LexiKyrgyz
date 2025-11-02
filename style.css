@@ -406,7 +406,7 @@ body {
   margin-right: 9px;
 }
 
-.derivatives-list {
+.related-words-list {
   display: flex;
   flex-wrap: wrap;
   gap: 18px;
