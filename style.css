@@ -201,8 +201,9 @@ body {
   margin: 0;
   padding: 0;
 }
+
 .filter-item {
-  padding: 14px 16px;
+  padding: 14px 18px;
   border-bottom: 1px solid var(--border-color);
   cursor: pointer;
   transition: var(--transition);
@@ -210,18 +211,20 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  border-radius: var(--radius-sm);
+  background: #ffffff;
 }
+
 .filter-item:hover {
-  background: #fffbeb;
+  background: #fff7d6;
   border-color: var(--brand-primary);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
 }
-.filter-item:last-child {
-  border-bottom: none;
-}
+
 .filter-count {
   font-size: 0.85rem;
   color: var(--text-light);
-  background: var(--border-color);
+  background: #f0f0f0;
   padding: 2px 8px;
   border-radius: 12px;
 }
