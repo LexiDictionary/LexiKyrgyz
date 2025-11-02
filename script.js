@@ -4,26 +4,12 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let lemmaCache = new Map();
 let lemmaList = [];
-let isCacheLoading = false;
-
-const preloadCache = async () => {
-  if (isCacheLoading || lemmaList.length > 0) return;
-  isCacheLoading = true;
-
-  const { data, error } = await supabase
-    .from('lemmas')
-    .select('id, canonical, pronunciation, cefr')
-    .limit(1000);
-
-  if (error || !data) {
-    console.error('Cache preload failed:', error);
-    isCacheLoading = false;
-    return;
-  }
-
-  lemmaList = data;
-  isCacheLoading = false;
+let filterCache = {
+  cefr: new Map(),
+  pos: new Map(),
+  topic: new Map()
 };
+let isCacheLoading = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
   await preloadCache();
@@ -37,6 +23,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const randomBtn          = $('#randomBtn');
   const exerciseBtn        = $('#exerciseBtn');
   const filterModal        = $('#filterModal');
+  const modalTitle         = $('#modalTitle');
+  const modalBody          = $('#modalBody');
   const closeModal         = $('#closeModal');
   const exerciseModal      = $('#exerciseModal');
   const closeExerciseModal = $('#closeExerciseModal');
@@ -57,13 +45,55 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!raw) return {};
     if (typeof raw === 'object') return raw;
     if (typeof raw !== 'string') return {};
-
     try {
       const cleaned = raw.replace(/\\"/g, '"');
       return JSON.parse(cleaned);
     } catch (e) {
-      console.warn('Failed to parse grammar JSON:', raw);
+      console.warn('Grammar parse failed:', raw);
       return {};
+    }
+  };
+
+  const preloadCache = async () => {
+    if (isCacheLoading || lemmaList.length > 0) return;
+    isCacheLoading = true;
+
+    const { data, error } = await supabase
+      .from('lemmas')
+      .select('id, canonical, pronunciation, cefr')
+      .limit(1000);
+
+    if (error || !data) {
+      console.error('Cache preload failed:', error);
+      isCacheLoading = false;
+      return;
+    }
+
+    lemmaList = data;
+    await preloadFilters();
+    isCacheLoading = false;
+  };
+
+  const preloadFilters = async () => {
+    const tables = ['cefr', 'pos', 'topic'];
+    for (const type of tables) {
+      const column = type === 'cefr' ? 'cefr' : type === 'pos' ? 'pos' : 'topic';
+      const table = type === 'topic' ? 'senses' : 'lemmas';
+
+      const { data, error } = await supabase
+        .from(table)
+        .select(column === 'topic' ? 'topic' : column)
+        .not(column, 'is', null);
+
+      if (error || !data) continue;
+
+      const counts = {};
+      data.forEach(row => {
+        const value = row[column] || row.topic;
+        if (value) counts[value] = (counts[value] || 0) + 1;
+      });
+
+      filterCache[type] = new Map(Object.entries(counts).sort((a, b) => b[1] - a[1]));
     }
   };
 
@@ -135,8 +165,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const senseHtml = entry.senses.map((sense, i) => {
       const transCls = isKyrgyz(sense.translation) ? 'kyrgyz' : '';
       let tags = '';
-      if (sense.pos)   tags += `<button type="button" class="pos" data-filter="pos" data-value="${sense.pos}">${sense.pos}</button>`;
-      if (sense.topic) tags += `<button type="button" class="topic-tag" data-filter="topic" data-value="${sense.topic}">${sense.topic}</button>`;
+      if (sense.pos)   tags += `<button type="button" class="pos tag-btn" data-type="pos" data-value="${escapeHtml(sense.pos)}">${escapeHtml(sense.pos)}</button>`;
+      if (sense.topic) tags += `<button type="button" class="topic-tag tag-btn" data-type="topic" data-value="${escapeHtml(sense.topic)}">${escapeHtml(sense.topic)}</button>`;
 
       const examples = (sense.examples || []).map(ex => `
         <li class="example-item">
@@ -179,7 +209,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let cefrTag = '';
     if (entry.cefr) {
       cefrTag = `<div class="tags-container" style="position:absolute;right:0;top:0;">
-        <button type="button" class="level-tag" data-filter="cefr" data-value="${entry.cefr}">${entry.cefr.toUpperCase()}</button>
+        <button type="button" class="level-tag tag-btn" data-type="cefr" data-value="${escapeHtml(entry.cefr)}">${escapeHtml(entry.cefr.toUpperCase())}</button>
       </div>`;
     }
 
@@ -191,6 +221,99 @@ document.addEventListener('DOMContentLoaded', async () => {
         <div class="frequency-placeholder">Frequency: top 1000</div>
         ${senseHtml}
       </div>`;
+  };
+
+  const showFilterModal = (type) => {
+    const titles = { cefr: 'CEFR Levels', pos: 'Parts of Speech', topic: 'Topics' };
+    modalTitle.textContent = titles[type];
+
+    const items = filterCache[type];
+    if (!items || items.size === 0) {
+      modalBody.innerHTML = `<p style="text-align:center;color:var(--text-muted);">No data available.</p>`;
+    } else {
+      const listHtml = Array.from(items.entries())
+        .map(([value, count]) => `
+          <li class="filter-item" data-filter-value="${escapeHtml(value)}">
+            <span>${escapeHtml(value)}</span>
+            <span class="filter-count">${count}</span>
+          </li>
+        `).join('');
+      modalBody.innerHTML = `<ul class="filter-list">${listHtml}</ul>`;
+    }
+
+    filterModal.style.display = 'flex';
+
+    modalBody.querySelectorAll('.filter-item').forEach(item => {
+      item.onclick = () => {
+        const value = item.dataset.filterValue;
+        filterAndShow(type, value);
+        filterModal.style.display = 'none';
+      };
+    });
+  };
+
+  const filterAndShow = async (type, value) => {
+    let lemmasToShow = [];
+
+    if (type === 'cefr') {
+      const { data } = await supabase
+        .from('lemmas')
+        .select('canonical')
+        .eq('cefr', value);
+      lemmasToShow = data || [];
+    } else if (type === 'pos') {
+      const { data: senses } = await supabase
+        .from('senses')
+        .select('lemma_id')
+        .eq('pos', value);
+      if (senses) {
+        const lemmaIds = [...new Set(senses.map(s => s.lemma_id))];
+        const { data } = await supabase
+          .from('lemmas')
+          .select('canonical')
+          .in('id', lemmaIds);
+        lemmasToShow = data || [];
+      }
+    } else if (type === 'topic') {
+      const { data: senses } = await supabase
+        .from('senses')
+        .select('lemma_id')
+        .eq('topic', value);
+      if (senses) {
+        const lemmaIds = [...new Set(senses.map(s => s.lemma_id))];
+        const { data } = await supabase
+          .from('lemmas')
+          .select('canonical')
+          .in('id', lemmaIds);
+        lemmasToShow = data || [];
+      }
+    }
+
+    if (lemmasToShow.length === 0) {
+      resultsContainer.innerHTML = `<div class="no-result">No entries found for ${escapeHtml(value)}</div>`;
+      return;
+    }
+
+    const entries = await Promise.all(
+      lemmasToShow.map(l => fetchFullLemma(l.canonical))
+    );
+
+    resultsContainer.innerHTML = entries
+      .filter(e => e)
+      .map(e => renderEntry(e.canonical, e))
+      .join('');
+
+    attachTagFilters();
+  };
+
+  const attachTagFilters = () => {
+    $$('.tag-btn').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const type = btn.dataset.type;
+        showFilterModal(type);
+      };
+    });
   };
 
   const showResult = async (query = '') => {
@@ -243,6 +366,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       attachTagFilters();
     }
   };
+
+  exerciseBtn.onclick = generateExercise;
+  closeExerciseModal.onclick = () => exerciseModal.style.display = 'none';
 
   const generateExercise = async () => {
     if (!lemmaList.length) await preloadCache();
@@ -301,9 +427,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     body.querySelector('.close-btn').onclick = () => exerciseModal.style.display = 'none';
   };
 
-  exerciseBtn.onclick = generateExercise;
-  closeExerciseModal.onclick = () => exerciseModal.style.display = 'none';
-
   title.onclick = () => { searchInput.value = ''; showResult(''); };
 
   let searchTimeout;
@@ -336,12 +459,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       filterModal.style.display = exerciseModal.style.display = 'none';
     }
   });
-
-  const attachTagFilters = () => {
-    $$('[data-filter]').forEach(btn => {
-      btn.onclick = () => alert(`Filter: ${btn.dataset.filter} = ${btn.dataset.value}`);
-    });
-  };
 
   showResult('');
 });
