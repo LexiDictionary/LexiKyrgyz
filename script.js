@@ -1,460 +1,494 @@
-const SUPABASE_URL = 'https://jvizodlmiiisubatqykg.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2aXpvZGxtaWlpc3ViYXRxeWtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NjYxNTYsImV4cCI6MjA3NzI0MjE1Nn0.YD9tMUyQVq7v5gkWq-f_sQfYfD2raq_o7FeOmLjeN7I';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Supabase client
+const supabaseUrl = 'https://jvizodlmiiisubatqykg.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2aXpvZGxtaWlpc3ViYXRxeWtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NjYxNTYsImV4cCI6MjA3NzI0MjE1Nn0.YD9tMUyQVq7v5gkWq-f_sQfYfD2raq_o7FeOmLjeN7I';
+const supabase = supabase.createClient(supabaseUrl, supabaseAnonKey);
 
-let lemmaCache = new Map();
-let lemmaList = [];
-let filterCache = {
-  cefr: new Map(),
-  pos: new Map(),
-  topic: new Map()
-};
-let isCacheLoading = false;
+// DOM Elements
+const searchInput = document.getElementById('searchInput');
+const resultsContainer = document.getElementById('resultsContainer');
+const title = document.getElementById('title');
+const randomBtn = document.getElementById('randomBtn');
+const exerciseBtn = document.getElementById('exerciseBtn');
+const filterModal = document.getElementById('filterModal');
+const modalTitle = document.getElementById('modalTitle');
+const modalBody = document.getElementById('modalBody');
+const closeModal = document.getElementById('closeModal');
+const exerciseModal = document.getElementById('exerciseModal');
+const closeExerciseModal = document.getElementById('closeExerciseModal');
+const virtualKeyboard = document.getElementById('virtualKeyboard');
+const keyboardToggleBtn = document.getElementById('keyboardToggleBtn');
 
-const $  = s => document.querySelector(s);
-const $$ = s => document.querySelectorAll(s);
+// Cache
+let allLemmasCache = null;
+let allEntriesWithFormsCache = null;
 
-document.addEventListener('DOMContentLoaded', async () => {
-  $('#filterModal').style.display = 'none';
-  $('#exerciseModal').style.display = 'none';
+// Utility: Escape HTML
+function escapeHtml(unsafe) {
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "<")
+    .replace(/>/g, ">")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
-  const searchInput        = $('#searchInput');
-  const resultsContainer   = $('#resultsContainer');
-  const title              = $('#title');
-  const randomBtn          = $('#randomBtn');
-  const exerciseBtn        = $('#exerciseBtn');
-  const modalTitle         = $('#modalTitle');
-  const modalBody          = $('#modalBody');
-  const closeModal         = $('#closeModal');
-  const closeExerciseModal = $('#closeExerciseModal');
-  const virtualKeyboard    = $('#virtualKeyboard');
-  const keyboardToggleBtn  = $('#keyboardToggleBtn');
-  const aboutSection       = $('#aboutSection');
+// Utility: Detect Kyrgyz (Cyrillic)
+function isKyrgyz(text) {
+  return /[\u0400-\u04FF]/.test(text);
+}
 
-  const escapeHtml = unsafe => unsafe
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+// Fetch all lemmas with senses, examples, related, and forms
+async function fetchEntryByLemma(lemma) {
+  // Step 1: Get lemma
+  const { data: lemmaData, error: lemmaError } = await supabase
+    .from('lemmas')
+    .select('id, canonical, pronunciation, cefr')
+    .eq('canonical', lemma)
+    .single();
 
-  const isKyrgyz = text => /[\u0400-\u04FF]/.test(text);
+  if (lemmaError || !lemmaData) return null;
 
-  const safeParseGrammar = (raw) => {
-    if (!raw) return {};
-    if (typeof raw === 'object') return raw;
-    if (typeof raw !== 'string') return {};
-    try {
-      const cleaned = raw.replace(/\\"/g, '"');
-      return JSON.parse(cleaned);
-    } catch (e) {
-      console.warn('Grammar parse failed:', raw);
-      return {};
-    }
+  // Step 2: Get all senses for this lemma
+  const { data: sensesData, error: sensesError } = await supabase
+    .from('senses')
+    .select('id, pos, translation, topic, grammar')
+    .eq('lemma_id', lemmaData.id);
+
+  if (sensesError || !sensesData || sensesData.length === 0) return null;
+
+  // Step 3: Get all examples for these senses
+  const senseIds = sensesData.map(s => s.id);
+  const { data: examplesData } = await supabase
+    .from('examples')
+    .select('sense_id, kg, en')
+    .in('sense_id', senseIds);
+
+  // Step 4: Get all related for these senses
+  const { data: relatedData } = await supabase
+    .from('related')
+    .select('sense_id, word, translation')
+    .in('sense_id', senseIds);
+
+  // Step 5: Get all forms for this lemma
+  const { data: formData } = await supabase
+    .from('forms')
+    .select('form')
+    .eq('lemma_id', lemmaData.id);
+
+  const forms = formData ? formData.map(f => f.form) : [];
+
+  // Group examples and related by sense_id
+  const examplesMap = {};
+  examplesData?.forEach(ex => {
+    if (!examplesMap[ex.sense_id]) examplesMap[ex.sense_id] = [];
+    examplesMap[ex.sense_id].push({ kg: ex.kg, en: ex.en });
+  });
+
+  const relatedMap = {};
+  relatedData?.forEach(rel => {
+    if (!relatedMap[rel.sense_id]) relatedMap[rel.sense_id] = [];
+    relatedMap[rel.sense_id].push({ word: rel.word, translation: rel.translation });
+  });
+
+  // Build senses with examples and related
+  const senses = sensesData.map(sense => ({
+    pos: sense.pos,
+    translation: sense.translation,
+    topic: sense.topic,
+    grammar: sense.grammar || {},
+    examples: examplesMap[sense.id] || [],
+    related: relatedMap[sense.id] || []
+  }));
+
+  return {
+    canonical: lemmaData.canonical,
+    pronunciation: lemmaData.pronunciation || '',
+    cefr: lemmaData.cefr,
+    forms: forms,
+    senses: senses
   };
+}
 
-  const preloadCache = async () => {
-    if (isCacheLoading || lemmaList.length > 0) return;
-    isCacheLoading = true;
+// Fetch minimal lemma list (for random/exercise)
+async function fetchAllLemmas() {
+  if (allLemmasCache) return allLemmasCache;
 
-    const { data, error } = await supabase
-      .from('lemmas')
-      .select('id, canonical, pronunciation, cefr')
-      .limit(1000);
+  const { data, error } = await supabase
+    .from('lemmas')
+    .select('canonical')
+    .order('canonical', { ascending: true });
 
-    if (error || !data) {
-      console.error('Cache preload failed:', error);
-      isCacheLoading = false;
-      return;
-    }
+  if (error) {
+    console.error('Failed to fetch lemmas:', error);
+    return [];
+  }
 
-    lemmaList = data;
-    await preloadFilters();
-    isCacheLoading = false;
-  };
+  allLemmasCache = data.map(r => r.canonical);
+  return allLemmasCache;
+}
 
-  const preloadFilters = async () => {
-    const tables = ['cefr', 'pos', 'topic'];
-    for (const type of tables) {
-      const column = type === 'cefr' ? 'cefr' : type === 'pos' ? 'pos' : 'topic';
-      const table = type === 'topic' ? 'senses' : 'lemmas';
+// Fetch lemmas with forms (for inflected form lookup)
+async function fetchAllEntriesWithForms() {
+  if (allEntriesWithFormsCache) return allEntriesWithFormsCache;
 
-      const { data, error } = await supabase
-        .from(table)
-        .select(column === 'topic' ? 'topic' : column)
-        .not(column, 'is', null);
+  const { data: lemmas, error: lemmasError } = await supabase
+    .from('lemmas')
+    .select('id, canonical');
 
-      if (error || !data) continue;
+  if (lemmasError || !lemmas) return [];
 
-      const counts = {};
-      data.forEach(row => {
-        const value = row[column] || row.topic;
-        if (value) counts[value] = (counts[value] || 0) + 1;
-      });
+  const lemmaIds = lemmas.map(l => l.id);
+  const { data: forms, error: formsError } = await supabase
+    .from('forms')
+    .select('lemma_id, form')
+    .in('lemma_id', lemmaIds);
 
-      filterCache[type] = new Map(Object.entries(counts).sort((a, b) => b[1] - a[1]));
-    }
-  };
+  if (formsError) return [];
 
-  const fetchFullLemma = async (canonical) => {
-    if (lemmaCache.has(canonical)) return lemmaCache.get(canonical);
+  // Map forms by lemma_id
+  const formsByLemmaId = {};
+  forms.forEach(f => {
+    if (!formsByLemmaId[f.lemma_id]) formsByLemmaId[f.lemma_id] = [];
+    formsByLemmaId[f.lemma_id].push(f.form);
+  });
 
-    const { data: lemma, error: e1 } = await supabase
-      .from('lemmas')
-      .select('*')
-      .eq('canonical', canonical)
-      .single();
-    if (e1 || !lemma) return null;
+  const result = lemmas.map(l => ({
+    lemma: l.canonical,
+    forms: formsByLemmaId[l.id] || []
+  }));
 
-    const { data: senses, error: e2 } = await supabase
-      .from('senses')
-      .select('*')
-      .eq('lemma_id', lemma.id)
-      .order('id');
-    if (e2) senses = [];
+  allEntriesWithFormsCache = result;
+  return result;
+}
 
-    for (const sense of senses) {
-      const { data: examples } = await supabase
-        .from('examples')
-        .select('*')
-        .eq('sense_id', sense.id);
-      sense.examples = examples || [];
+// Render entry (same as before, but now uses live data structure)
+function renderEntry(lemma, entry) {
+  const isHeadwordKyrgyz = isKyrgyz(lemma);
+  let sensesHtml = '';
 
-      const { data: related } = await supabase
-        .from('related')
-        .select('word,translation')
-        .eq('sense_id', sense.id);
-      sense.related = related || [];
-
-      sense.grammar = safeParseGrammar(sense.grammar);
-    }
-
-    const entry = {
-      canonical: lemma.canonical,
-      pronunciation: lemma.pronunciation || '',
-      cefr: lemma.cefr || '',
-      senses
-    };
-
-    lemmaCache.set(canonical, entry);
-    return entry;
-  };
-
-  const fetchLemmaByForm = async (form) => {
-    const { data: row, error } = await supabase
-      .from('forms')
-      .select('lemma_id')
-      .eq('form', form)
-      .single();
-    if (error || !row) return null;
-
-    const { data: lemma } = await supabase
-      .from('lemmas')
-      .select('canonical')
-      .eq('id', row.lemma_id)
-      .single();
-    if (!lemma) return null;
-
-    return await fetchFullLemma(lemma.canonical);
-  };
-
-  const renderEntry = (headword, entry) => {
-    const kyrgyzHead = isKyrgyz(headword) ? 'kyrgyz' : '';
-
-    const senseHtml = entry.senses.map((sense, i) => {
-      const transCls = isKyrgyz(sense.translation) ? 'kyrgyz' : '';
+  if (entry.senses && entry.senses.length > 1) {
+    sensesHtml = entry.senses.map((sense, index) => {
+      const transClass = isKyrgyz(sense.translation) ? 'kyrgyz' : '';
       let tags = '';
-      if (sense.pos)   tags += `<button type="button" class="pos tag-btn" data-type="pos" data-value="${escapeHtml(sense.pos)}">${escapeHtml(sense.pos)}</button>`;
-      if (sense.topic) tags += `<button type="button" class="topic tag-btn" data-type="topic" data-value="${escapeHtml(sense.topic)}">${escapeHtml(sense.topic)}</button>`;
+      if (sense.pos) tags += `<button class="pos" onclick="showFilterList('pos', '${escapeHtml(sense.pos)}')">${escapeHtml(sense.pos)}</button>`;
+      if (sense.topic) tags += `<button class="topic-tag" onclick="showFilterList('topic', '${escapeHtml(sense.topic)}')">${escapeHtml(sense.topic)}</button>`;
 
-      const examples = (sense.examples || []).map(ex => `
+      const examples = sense.examples.map(ex => `
         <li class="example-item">
           <span class="example-original kyrgyz">${escapeHtml(ex.kg)}</span>
           <span class="example-translation">${escapeHtml(ex.en)}</span>
-        </li>`).join('');
+        </li>
+      `).join('');
 
-      let grammarHtml = '';
+      let grammar = '';
       if (Object.keys(sense.grammar).length > 0) {
-        grammarHtml = `<ul class="grammar-list">`;
-        for (const [key, value] of Object.entries(sense.grammar)) {
-          grammarHtml += `<li class="grammar-item">
-            <span class="grammar-label">${escapeHtml(key)}:</span>
-            ${escapeHtml(value)}
-          </li>`;
+        grammar = `<ul class="grammar-list">`;
+        for (let key in sense.grammar) {
+          grammar += `<li class="grammar-item"><span class="grammar-label">${escapeHtml(key)}:</span> ${escapeHtml(sense.grammar[key])}</li>`;
         }
-        grammarHtml += `</ul>`;
+        grammar += `</ul>`;
       }
 
-      const related = (sense.related || []).map(r => `
-        <div class="related-item">
-          <span class="related-word">${escapeHtml(r.word)}</span>
-          <div class="related-translation">${escapeHtml(r.translation)}</div>
-        </div>`).join('');
+      const related = (sense.related || []).map(item => {
+        // We can't easily check if related word exists without extra fetch, so assume linkable via search
+        return `<div class="related-item">
+          <span class="related-word linkable" data-word="${escapeHtml(item.word)}">${escapeHtml(item.word)}</span>
+          <div class="related-translation">${escapeHtml(item.translation)}</div>
+        </div>`;
+      }).join('');
 
       return `
         <div class="sense-item">
           <div class="tags-container">${tags}</div>
-          <span class="sense-number">${i + 1}.</span>
-          <div class="translation ${transCls}">${escapeHtml(sense.translation)}</div>
-          <span class="sense-definition">${escapeHtml(sense.definition || '')}</span>
+          <span class="sense-number">${index + 1}.</span>
+          <div class="translation ${transClass}">${escapeHtml(sense.translation)}</div>
           <div class="section-title">Examples</div>
           <ul class="examples-list">${examples}</ul>
-          ${grammarHtml ? `<div class="section-title">Grammar</div>${grammarHtml}` : ''}
+          <div class="section-title">Grammar</div>
+          ${grammar}
           <div class="section-title">Related</div>
-          <div class="related-words-list">${related}</div>
-        </div>`;
+          <div class="related-list">${related}</div>
+        </div>
+      `;
+    }).join('');
+  } else {
+    const sense = entry.senses[0];
+    const transClass = isKyrgyz(sense.translation) ? 'kyrgyz' : '';
+    let tags = '';
+    if (sense.pos) tags += `<button class="pos" onclick="showFilterList('pos', '${escapeHtml(sense.pos)}')">${escapeHtml(sense.pos)}</button>`;
+    if (sense.topic) tags += `<button class="topic-tag" onclick="showFilterList('topic', '${escapeHtml(sense.topic)}')">${escapeHtml(sense.topic)}</button>`;
+
+    const examples = sense.examples.map(ex => `
+      <li class="example-item">
+        <span class="example-original kyrgyz">${escapeHtml(ex.kg)}</span>
+        <span class="example-translation">${escapeHtml(ex.en)}</span>
+      </li>
+    `).join('');
+
+    let grammar = '';
+    if (Object.keys(sense.grammar).length > 0) {
+      grammar = `<ul class="grammar-list">`;
+      for (let key in sense.grammar) {
+        grammar += `<li class="grammar-item"><span class="grammar-label">${escapeHtml(key)}:</span> ${escapeHtml(sense.grammar[key])}</li>`;
+      }
+      grammar += `</ul>`;
+    }
+
+    const related = (sense.related || []).map(item => {
+      return `<div class="related-item">
+        <span class="related-word linkable" data-word="${escapeHtml(item.word)}">${escapeHtml(item.word)}</span>
+        <div class="related-translation">${escapeHtml(item.translation)}</div>
+      </div>`;
     }).join('');
 
-    let cefrTag = '';
-    if (entry.cefr) {
-      cefrTag = `<div class="tags-container" style="position:absolute;right:0;top:0;">
-        <button type="button" class="level-tag tag-btn" data-type="cefr" data-value="${escapeHtml(entry.cefr)}">${escapeHtml(entry.cefr.toUpperCase())}</button>
-      </div>`;
-    }
-
-    return `
-      <div class="entry" style="position:relative;">
-        ${cefrTag}
-        <div class="headword ${kyrgyzHead}">${escapeHtml(headword)}</div>
-        <div class="pronunciation">${escapeHtml(entry.pronunciation)}</div>
-        <div class="frequency-placeholder">Frequency: top 1000</div>
-        ${senseHtml}
-      </div>`;
-  };
-
-  const showFilterModal = async (type, filterValue = null) => {
-    if (filterValue) {
-      let lemmasToShow = [];
-      if (type === 'cefr') {
-        const { data } = await supabase
-          .from('lemmas')
-          .select('canonical')
-          .eq('cefr', filterValue);
-        lemmasToShow = data || [];
-      } else if (type === 'pos') {
-        const { data: senses } = await supabase
-          .from('senses')
-          .select('lemma_id')
-          .eq('pos', filterValue);
-        if (senses) {
-          const lemmaIds = [...new Set(senses.map(s => s.lemma_id))];
-          const { data } = await supabase
-            .from('lemmas')
-            .select('canonical')
-            .in('id', lemmaIds);
-          lemmasToShow = data || [];
-        }
-      } else if (type === 'topic') {
-        const { data: senses } = await supabase
-          .from('senses')
-          .select('lemma_id')
-          .eq('topic', filterValue);
-        if (senses) {
-          const lemmaIds = [...new Set(senses.map(s => s.lemma_id))];
-          const { data } = await supabase
-            .from('lemmas')
-            .select('canonical')
-            .in('id', lemmaIds);
-          lemmasToShow = data || [];
-        }
-      }
-
-      if (!lemmasToShow.length) {
-        modalBody.innerHTML = `<p style="text-align:center;color:var(--text-muted);">No lemmas found for ${escapeHtml(filterValue)}</p>`;
-      } else {
-        const entries = await Promise.all(lemmasToShow.map(l => fetchFullLemma(l.canonical)));
-        modalBody.innerHTML = entries
-          .filter(e => e)
-          .map(e => `<div class="modal-lemma" onclick="showResult('${escapeHtml(e.canonical)}')">${escapeHtml(e.canonical)}</div>`)
-          .join('');
-      }
-
-      modalTitle.textContent = `${filterValue} (${type})`;
-      $('#filterModal').style.display = 'flex';
-      return;
-    }
-
-    const titles = { cefr: 'CEFR Levels', pos: 'Parts of Speech', topic: 'Topics' };
-    modalTitle.textContent = titles[type];
-
-    const items = filterCache[type];
-    if (!items || items.size === 0) {
-      modalBody.innerHTML = `<p style="text-align:center;color:var(--text-muted);">No data available.</p>`;
-    } else {
-      const listHtml = Array.from(items.entries())
-        .map(([value, count]) => `
-          <li class="filter-item" data-filter-value="${escapeHtml(value)}">
-            <span>${escapeHtml(value)}</span>
-            <span class="filter-count">${count}</span>
-          </li>
-        `).join('');
-      modalBody.innerHTML = `<ul class="filter-list">${listHtml}</ul>`;
-    }
-
-    $('#filterModal').style.display = 'flex';
-
-    modalBody.querySelectorAll('.filter-item').forEach(item => {
-      item.onclick = () => {
-        const value = item.dataset.filterValue;
-        showFilterModal(type, value);
-      };
-    });
-  };
-
-  const attachTagFilters = () => {
-    $$('.tag-btn').forEach(btn => {
-      btn.onclick = e => {
-        e.stopPropagation();
-        showFilterModal(btn.dataset.type, btn.dataset.value);
-      };
-    });
-  };
-
-  const showResult = async (query = '') => {
-    const q = query.trim();
-    if (!q) {
-      resultsContainer.innerHTML = aboutSection.outerHTML;
-      return;
-    }
-
-    let html = `<div class="no-result">No entry found for "${escapeHtml(q)}"</div>`;
-    const kg = isKyrgyz(q);
-
-    try {
-      if (kg) {
-        let entry = await fetchFullLemma(q);
-        if (!entry) entry = await fetchLemmaByForm(q);
-        if (entry) html = renderEntry(entry.canonical || q, entry);
-      } else {
-        const { data: senses } = await supabase
-          .from('senses')
-          .select('lemma_id, translation')
-          .ilike('translation', q);
-        if (senses?.length === 1) {
-          const { data: lemma } = await supabase
-            .from('lemmas')
-            .select('canonical')
-            .eq('id', senses[0].lemma_id)
-            .single();
-          if (lemma) {
-            const full = await fetchFullLemma(lemma.canonical);
-            if (full) html = renderEntry(lemma.canonical, full);
-          }
-        }
-      }
-    } catch (e) { console.error(e); }
-
-    resultsContainer.innerHTML = html;
-    attachTagFilters();
-  };
-
-  randomBtn.onclick = async () => {
-    if (!lemmaList.length) await preloadCache();
-    if (!lemmaList.length) return;
-
-    const rand = lemmaList[Math.floor(Math.random() * lemmaList.length)];
-    const entry = await fetchFullLemma(rand.canonical);
-    if (entry) {
-      searchInput.value = entry.canonical;
-      resultsContainer.innerHTML = renderEntry(entry.canonical, entry);
-      attachTagFilters();
-    }
-  };
-
-  exerciseBtn.onclick = generateExercise;
-
-  const generateExercise = async () => {
-    if (!lemmaList.length) await preloadCache();
-    if (!lemmaList.length) return;
-
-    const correct = lemmaList[Math.floor(Math.random() * lemmaList.length)];
-    const entry = await fetchFullLemma(correct.canonical);
-    if (!entry?.senses?.[0]) return;
-    const answer = entry.senses[0].translation;
-
-    const distractors = lemmaList
-      .filter(l => l.id !== correct.id)
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 3)
-      .map(l => l.canonical);
-
-    const wrong = await Promise.all(distractors.map(c => fetchFullLemma(c)));
-    const wrongAnswers = wrong
-      .filter(e => e?.senses?.[0])
-      .map(e => e.senses[0].translation);
-
-    const options = [answer, ...wrongAnswers].sort(() => Math.random() - 0.5);
-    const optsHtml = options.map(o => `<div class="answer-option" data-answer="${escapeHtml(o)}">${escapeHtml(o)}</div>`).join('');
-
-    const body = $('#exerciseModalBody');
-    body.innerHTML = `
-      <div class="exercise-question">What's the English for <span class="kyrgyz">${escapeHtml(correct.canonical)}</span>?</div>
-      <div class="answer-options">${optsHtml}</div>
-      <div class="exercise-feedback" style="display:none;"></div>
-      <div class="exercise-buttons">
-        <button type="button" class="exercise-btn-modal next-btn">Next Question</button>
-        <button type="button" class="exercise-btn-modal close-btn">Close</button>
+    sensesHtml = `
+      <div class="sense-item">
+        <div class="tags-container">${tags}</div>
+        <div class="translation ${transClass}">${escapeHtml(sense.translation)}</div>
+        <div class="section-title">Examples</div>
+        <ul class="examples-list">${examples}</ul>
+        <div class="section-title">Grammar</div>
+        ${grammar}
+        <div class="section-title">Related</div>
+        <div class="related-list">${related}</div>
       </div>
     `;
+  }
 
-    $('#exerciseModal').style.display = 'block';
+  let cefr = '';
+  if (entry.cefr) {
+    cefr = `<div class="tags-container" style="position:absolute; right:0; top:0;">
+      <button class="level-tag" onclick="showFilterList('cefr', '${escapeHtml(entry.cefr)}')">${escapeHtml(entry.cefr).toUpperCase()}</button>
+    </div>`;
+  }
 
-    body.querySelectorAll('.answer-option').forEach(opt => {
-      opt.onclick = () => {
-        const selected = opt.dataset.answer;
-        const correct = selected === answer;
-        $$('.answer-option').forEach(o => o.classList.remove('selected','correct','incorrect'));
-        opt.classList.add('selected', correct ? 'correct' : 'incorrect');
-        if (!correct) body.querySelector(`[data-answer="${answer}"]`)?.classList.add('correct');
+  return `
+    <div class="entry" style="position:relative;">
+      ${cefr}
+      <div class="headword ${isHeadwordKyrgyz ? 'kyrgyz' : ''}">${escapeHtml(entry.canonical)}</div>
+      <div class="pronunciation">${escapeHtml(entry.pronunciation)}</div>
+      ${sensesHtml}
+    </div>
+  `;
+}
 
-        const fb = body.querySelector('.exercise-feedback');
-        fb.style.display = 'block';
-        fb.innerHTML = correct
-          ? `<h4>Correct!</h4><p>Well done!</p>`
-          : `<h4>Incorrect</h4><p>The right answer is <strong>${escapeHtml(answer)}</strong></p>`;
+// Attach event listeners after rendering
+function attachEventListeners() {
+  document.querySelectorAll('.related-word.linkable').forEach(el => {
+    el.onclick = () => {
+      searchInput.value = el.dataset.word;
+      showResult(el.dataset.word);
+    };
+  });
+  document.querySelectorAll('.filter-word-item').forEach(el => {
+    el.onclick = () => {
+      searchInput.value = el.dataset.word;
+      showResult(el.dataset.word);
+      filterModal.style.display = 'none';
+    };
+  });
+}
 
-        body.querySelector('.next-btn').onclick = generateExercise;
-      };
-    });
+// Main search function (now async)
+async function showResult(query) {
+  const q = query.toLowerCase().trim();
+  if (!q) {
+    resultsContainer.innerHTML = `<div class="about-section"><div class="section-title">About</div><p class="about-content">bla blabla bla</p></div>`;
+    return;
+  }
 
-    body.querySelector('.close-btn').onclick = () => $('#exerciseModal').style.display = 'none';
+  const isKg = isKyrgyz(q);
+  resultsContainer.innerHTML = '<div class="no-result">Searching…</div>';
+
+  if (isKg) {
+    // 1. Try exact lemma match
+    let entry = await fetchEntryByLemma(q);
+    if (entry) {
+      resultsContainer.innerHTML = renderEntry(q, entry);
+      attachEventListeners();
+      return;
+    }
+
+    // 2. Try matching inflected forms
+    const allEntries = await fetchAllEntriesWithForms();
+    const match = allEntries.find(e =>
+      e.forms.some(form => form.toLowerCase() === q)
+    );
+    if (match) {
+      entry = await fetchEntryByLemma(match.lemma);
+      if (entry) {
+        resultsContainer.innerHTML = renderEntry(match.lemma, entry);
+        attachEventListeners();
+        return;
+      }
+    }
+
+    resultsContainer.innerHTML = `<div class="no-result">No entry found for "${escapeHtml(query)}"</div>`;
+  } else {
+    // Search by English translation in senses
+    const { data, error } = await supabase
+      .from('senses')
+      .select('lemma_id, translation')
+      .eq('translation', query);
+
+    if (error || !data || data.length === 0) {
+      resultsContainer.innerHTML = `<div class="no-result">No entry found for "${escapeHtml(query)}"</div>`;
+      return;
+    }
+
+    // Get unique lemma_ids
+    const lemmaIds = [...new Set(data.map(d => d.lemma_id))];
+    const { data: lemmaData } = await supabase
+      .from('lemmas')
+      .select('canonical')
+      .in('id', lemmaIds);
+
+    const lemmas = lemmaData.map(l => l.canonical);
+    if (lemmas.length === 1) {
+      const entry = await fetchEntryByLemma(lemmas[0]);
+      resultsContainer.innerHTML = entry ? renderEntry(lemmas[0], entry) : `<div class="no-result">Entry not found.</div>`;
+    } else {
+      let html = `<div class="no-result"><p>Multiple words for "${escapeHtml(query)}":</p><ul class="filter-word-list">`;
+      lemmas.forEach(w => html += `<li class="filter-word-item kyrgyz" data-word="${w}">${w}</li>`);
+      html += `</ul></div>`;
+      resultsContainer.innerHTML = html;
+    }
+    attachEventListeners();
+  }
+}
+
+// Filter modal (simplified — would need full re-implementation for live filters)
+// For now, we disable filtering or implement later. Let’s keep it minimal.
+function showFilterList(filterType, value) {
+  alert(`Filter by ${filterType} = ${value} is not yet implemented with live data.`);
+}
+
+// Exercise generator
+async function generateExercise() {
+  const lemmas = await fetchAllLemmas();
+  if (lemmas.length < 4) {
+    alert('Not enough words for exercise.');
+    return;
+  }
+
+  const correctLemma = lemmas[Math.floor(Math.random() * lemmas.length)];
+  const entry = await fetchEntryByLemma(correctLemma);
+  if (!entry || !entry.senses || entry.senses.length === 0) return;
+
+  const correctSense = entry.senses[0];
+  const answer = correctSense.translation;
+
+  // Get 3 random wrong translations
+  const otherLemmas = lemmas.filter(l => l !== correctLemma).slice(0, 50); // limit for perf
+  const distractors = [];
+  while (distractors.length < 3 && otherLemmas.length > 0) {
+    const randLemma = otherLemmas.splice(Math.floor(Math.random() * otherLemmas.length), 1)[0];
+    const e = await fetchEntryByLemma(randLemma);
+    if (e?.senses?.[0]?.translation) {
+      const tr = e.senses[0].translation;
+      if (tr !== answer && !distractors.includes(tr)) {
+        distractors.push(tr);
+      }
+    }
+  }
+
+  if (distractors.length < 3) {
+    // Fallback: use static distractors if needed
+    const fallback = ['book', 'house', 'car', 'tree', 'river', 'sky'];
+    while (distractors.length < 3) {
+      const f = fallback[Math.floor(Math.random() * fallback.length)];
+      if (f !== answer && !distractors.includes(f)) distractors.push(f);
+    }
+  }
+
+  const options = [answer, ...distractors].sort(() => Math.random() - 0.5);
+  const optsHtml = options.map(o => `<div class="answer-option" data-answer="${o}">${escapeHtml(o)}</div>`).join('');
+
+  const body = exerciseModal.querySelector('.modal-body');
+  body.innerHTML = `
+    <div class="exercise-question">What's the English word for <span class="kyrgyz">${escapeHtml(correctLemma)}</span>?</div>
+    <div class="answer-options">${optsHtml}</div>
+    <div class="exercise-feedback" style="display:none;"></div>
+    <div class="exercise-buttons">
+      <button class="exercise-btn-modal next-btn">Next Question</button>
+      <button class="exercise-btn-modal close-btn">Close</button>
+    </div>
+  `;
+
+  exerciseModal.style.display = 'block';
+
+  body.querySelectorAll('.answer-option').forEach(opt => {
+    opt.onclick = () => {
+      body.querySelectorAll('.answer-option').forEach(o => o.classList.remove('selected', 'correct', 'incorrect'));
+      opt.classList.add('selected');
+      const isCorrect = opt.textContent.trim() === answer;
+      if (isCorrect) {
+        opt.classList.add('correct');
+      } else {
+        opt.classList.add('incorrect');
+        body.querySelectorAll('.answer-option').forEach(o => {
+          if (o.textContent.trim() === answer) o.classList.add('correct');
+        });
+      }
+      const fb = body.querySelector('.exercise-feedback');
+      fb.style.display = 'block';
+      fb.innerHTML = isCorrect
+        ? `<h4>Correct!</h4><p>Well done!</p>`
+        : `<h4>Incorrect</h4><p>The correct answer is: <strong>${escapeHtml(answer)}</strong></p>`;
+
+      body.querySelector('.next-btn').onclick = generateExercise;
+    };
+  });
+
+  body.querySelector('.close-btn').onclick = () => {
+    exerciseModal.style.display = 'none';
   };
+}
 
-  closeExerciseModal.onclick = () => $('#exerciseModal').style.display = 'none';
-
-  title.onclick = () => { searchInput.value = ''; showResult(''); };
-
-  let searchTimeout;
-  searchInput.addEventListener('input', () => {
-    clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => showResult(searchInput.value), 300);
-  });
-
-  keyboardToggleBtn.onclick = () => {
-    const hidden = virtualKeyboard.style.display === 'none';
-    virtualKeyboard.style.display = hidden ? 'block' : 'none';
-    keyboardToggleBtn.textContent = hidden ? 'Hide Keyboard' : 'Show Keyboard';
-  };
-
-  document.addEventListener('click', e => {
-    if (!e.target.matches('.key')) return;
-    const key = e.target;
-    const action = key.dataset.action;
-    if (action === 'backspace') searchInput.value = searchInput.value.slice(0, -1);
-    else if (action === 'space') searchInput.value += ' ';
-    else searchInput.value += key.textContent;
-    searchInput.focus();
-    clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => showResult(searchInput.value), 100);
-  });
-
-  closeModal.onclick = () => $('#filterModal').style.display = 'none';
-
-  window.addEventListener('click', e => {
-    if (e.target === $('#filterModal')) $('#filterModal').style.display = 'none';
-    if (e.target === $('#exerciseModal')) $('#exerciseModal').style.display = 'none';
-  });
-
-  await preloadCache();
-  showResult('');
+// Event Listeners
+let searchTimeout;
+searchInput.addEventListener('input', (e) => {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => showResult(e.target.value), 300);
 });
+
+title.onclick = () => { searchInput.value = ''; showResult(''); };
+
+randomBtn.onclick = async () => {
+  const lemmas = await fetchAllLemmas();
+  if (lemmas.length === 0) return;
+  const w = lemmas[Math.floor(Math.random() * lemmas.length)];
+  searchInput.value = w;
+  showResult(w);
+};
+
+exerciseBtn.onclick = generateExercise;
+
+closeModal.onclick = () => filterModal.style.display = 'none';
+closeExerciseModal.onclick = () => exerciseModal.style.display = 'none';
+
+keyboardToggleBtn.onclick = () => {
+  const hidden = virtualKeyboard.style.display === 'none';
+  virtualKeyboard.style.display = hidden ? 'block' : 'none';
+  keyboardToggleBtn.textContent = hidden ? 'Hide Keyboard' : 'Show Keyboard';
+};
+
+document.querySelectorAll('.key').forEach(k => {
+  k.onclick = () => {
+    const act = k.dataset.action;
+    if (act === 'backspace') {
+      searchInput.value = searchInput.value.slice(0, -1);
+    } else if (act === 'space') {
+      searchInput.value += ' ';
+    } else {
+      searchInput.value += k.textContent;
+    }
+    searchInput.focus();
+    showResult(searchInput.value);
+  };
+});
+
+window.onclick = (e) => {
+  if (e.target === filterModal) filterModal.style.display = 'none';
+  if (e.target === exerciseModal) exerciseModal.style.display = 'none';
+};
