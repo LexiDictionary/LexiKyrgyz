@@ -225,7 +225,7 @@ function showResult(query) {
 function showFilterList(filterType, value) {
   let titleText = '';
   if (filterType === 'pos') titleText = `${value.charAt(0).toUpperCase() + value.slice(1)}s`;
-  else if (filterType === 'cefr') titleText = `CEFR Level ${value.toUpperCase()}`;
+  else if (filterType === 'cefr') titleText = `${value.toUpperCase()}`;
   else if (filterType === 'topic') titleText = `${value.charAt(0).toUpperCase() + value.slice(1)} Words`;
   else titleText = 'Filtered Results';
 
