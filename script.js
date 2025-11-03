@@ -252,12 +252,12 @@ function showFilterList(filterType, value) {
   if (filteredWords.length === 0) {
     modalBody.innerHTML = `<p>No words found for this filter.</p>`;
   } else {
-    let html = `<ul class="filter-word-list">`;
-    filteredWords.forEach(w => {
-      html += `<li class="filter-word-item kyrgyz" data-word="${w}">${w}</li>`;
-    });
-    html += `</ul>`;
-    modalBody.innerHTML = html;
+    let html = `<ul class="filter-list">`;
+filteredWords.forEach(w => {
+  html += `<li class="filter-item filter-word-item kyrgyz" data-word="${w}">${w}</li>`;
+});
+html += `</ul>`;
+modalBody.innerHTML = html;
   }
 
   filterModal.style.display = 'block';
