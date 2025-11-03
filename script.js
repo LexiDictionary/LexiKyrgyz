@@ -1,7 +1,3 @@
-const supabaseUrl = 'https://jvizodlmiiisubatqykg.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2aXpvZGxtaWlpc3ViYXRxeWtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NjYxNTYsImV4cCI6MjA3NzI0MjE1Nn0.YD9tMUyQVq7v5gkWq-f_sQfYfD2raq_o7FeOmLjeN7I';
-const supabase = supabase.createClient(supabaseUrl, supabaseAnonKey);
-
 const searchInput = document.getElementById('searchInput');
 const resultsContainer = document.getElementById('resultsContainer');
 const title = document.getElementById('title');
@@ -16,8 +12,33 @@ const closeExerciseModal = document.getElementById('closeExerciseModal');
 const virtualKeyboard = document.getElementById('virtualKeyboard');
 const keyboardToggleBtn = document.getElementById('keyboardToggleBtn');
 
-let dictionary = { kg: {} };
-let dictionaryLoaded = false;
+let dictionary = {
+  kg: {
+    "алма": {
+      canonical: "алма",
+      pronunciation: "/alma/",
+      topic: "food",
+      cefr: "A1",
+      forms: ["алма", "алманы", "алмалар"],
+      senses: [{
+        pos: "noun",
+        definition: "round fruit with red or green skin",
+        translation: "apple",
+        examples: [
+          { en: "I ate an apple.", kg: "Мен алма жедим." },
+          { en: "Apples are sweet.", kg: "Алма таттуу." }
+        ],
+        related: [
+          { word: "алма шырыбы", translation: "apple juice" },
+          { word: "алма дарагы", translation: "apple tree" }
+        ],
+        grammar: { accusative: "алманы", plural: "алмалар" }
+      }]
+    }
+  }
+};
+
+let dictionaryLoadedFromSupabase = false;
 
 function escapeHtml(unsafe) {
   return unsafe
@@ -30,77 +51,6 @@ function escapeHtml(unsafe) {
 
 function isKyrgyz(text) {
   return /[\u0400-\u04FF]/.test(text);
-}
-
-async function loadDictionary() {
-  if (dictionaryLoaded) return;
-  const { data: lemmas, error: lemmasError } = await supabase.from('lemmas').select('id, canonical, pronunciation, cefr');
-  if (lemmasError || !lemmas) return;
-
-  const lemmaById = {};
-  const canonicalToEntry = {};
-  lemmas.forEach(l => {
-    const entry = {
-      canonical: l.canonical,
-      pronunciation: l.pronunciation || '',
-      cefr: l.cefr,
-      forms: [],
-      senses: []
-    };
-    lemmaById[l.id] = entry;
-    canonicalToEntry[l.canonical] = entry;
-  });
-
-  const lemmaIds = lemmas.map(l => l.id);
-  const { data: forms } = await supabase.from('forms').select('lemma_id, form').in('lemma_id', lemmaIds);
-  if (forms) {
-    forms.forEach(f => {
-      if (lemmaById[f.lemma_id]) {
-        lemmaById[f.lemma_id].forms.push(f.form);
-      }
-    });
-  }
-
-  const { data: senses, error: sensesError } = await supabase.from('senses').select('id, lemma_id, pos, translation, topic, grammar');
-  if (sensesError || !senses) return;
-
-  const senseById = {};
-  senses.forEach(s => {
-    if (lemmaById[s.lemma_id]) {
-      const sense = {
-        pos: s.pos,
-        translation: s.translation,
-        topic: s.topic,
-        grammar: s.grammar || {},
-        examples: [],
-        related: []
-      };
-      senseById[s.id] = sense;
-      lemmaById[s.lemma_id].senses.push(sense);
-    }
-  });
-
-  const senseIds = senses.map(s => s.id);
-  const { data: examples } = await supabase.from('examples').select('sense_id, kg, en').in('sense_id', senseIds);
-  if (examples) {
-    examples.forEach(ex => {
-      if (senseById[ex.sense_id]) {
-        senseById[ex.sense_id].examples.push({ kg: ex.kg, en: ex.en });
-      }
-    });
-  }
-
-  const { data: related } = await supabase.from('related').select('sense_id, word, translation').in('sense_id', senseIds);
-  if (related) {
-    related.forEach(r => {
-      if (senseById[r.sense_id]) {
-        senseById[r.sense_id].related.push({ word: r.word, translation: r.translation });
-      }
-    });
-  }
-
-  dictionary = { kg: canonicalToEntry };
-  dictionaryLoaded = true;
 }
 
 function hasLemma(word) {
@@ -222,17 +172,12 @@ function renderEntry(lemma, entry) {
   `;
 }
 
-async function showResult(query) {
+function showResult(query) {
   const q = query.toLowerCase().trim();
   if (!q) {
     resultsContainer.innerHTML = `<div class="about-section"><div class="section-title">About</div><p class="about-content">bla blabla bla</p></div>`;
     attachEventListeners();
     return;
-  }
-
-  if (!dictionaryLoaded) {
-    resultsContainer.innerHTML = '<div class="no-result">Loading dictionary…</div>';
-    await loadDictionary();
   }
 
   const isKg = isKyrgyz(q);
@@ -325,8 +270,8 @@ function getRandomWord() {
 }
 
 function generateExercise() {
-  if (Object.keys(dictionary.kg).length === 0) return;
   const words = Object.keys(dictionary.kg);
+  if (words.length === 0) return;
   const correct = words[Math.floor(Math.random() * words.length)];
   const sense = dictionary.kg[correct].senses ? dictionary.kg[correct].senses[0] : dictionary.kg[correct];
   const answer = sense.translation;
@@ -403,24 +348,120 @@ function attachEventListeners() {
   });
 }
 
-searchInput.addEventListener('input', () => showResult(searchInput.value));
+// ==============================
+// SUPABASE INTEGRATION (SAFE)
+// ==============================
+
+async function loadFromSupabase() {
+  if (typeof window.supabase === 'undefined') {
+    console.warn('Supabase SDK not loaded. Using fallback dictionary.');
+    return;
+  }
+
+  try {
+    const client = window.supabase.createClient(
+      'https://jvizodlmiiisubatqykg.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2aXpvZGxtaWlpc3ViYXRxeWtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NjYxNTYsImV4cCI6MjA3NzI0MjE1Nn0.YD9tMUyQVq7v5gkWq-f_sQfYfD2raq_o7FeOmLjeN7I'
+    );
+
+    const { data: lemmas, error: lemmasErr } = await client.from('lemmas').select('id, canonical, pronunciation, cefr');
+    if (lemmasErr) throw lemmasErr;
+
+    const idToLemma = {};
+    const newDict = {};
+    lemmas.forEach(l => {
+      idToLemma[l.id] = l.canonical;
+      newDict[l.canonical] = {
+        canonical: l.canonical,
+        pronunciation: l.pronunciation || '',
+        cefr: l.cefr,
+        forms: [],
+        senses: []
+      };
+    });
+
+    const lemmaIds = lemmas.map(l => l.id);
+    const { data: forms } = await client.from('forms').select('lemma_id, form').in('lemma_id', lemmaIds);
+    forms?.forEach(f => {
+      if (newDict[idToLemma[f.lemma_id]]) {
+        newDict[idToLemma[f.lemma_id]].forms.push(f.form);
+      }
+    });
+
+    const { data: senses } = await client.from('senses').select('id, lemma_id, pos, translation, topic, grammar').in('lemma_id', lemmaIds);
+    if (!senses || senses.length === 0) return;
+
+    const senseIdToLemma = {};
+    senses.forEach(s => {
+      const lemmaKey = idToLemma[s.lemma_id];
+      if (lemmaKey) {
+        senseIdToLemma[s.id] = lemmaKey;
+        newDict[lemmaKey].senses.push({
+          pos: s.pos,
+          translation: s.translation,
+          topic: s.topic,
+          grammar: s.grammar || {},
+          examples: [],
+          related: []
+        });
+      }
+    });
+
+    const senseIds = senses.map(s => s.id);
+    const { data: examples } = await client.from('examples').select('sense_id, kg, en').in('sense_id', senseIds);
+    examples?.forEach(ex => {
+      const lemmaKey = senseIdToLemma[ex.sense_id];
+      if (lemmaKey) {
+        const sense = newDict[lemmaKey].senses.find(s => s.pos === senses.find(ss => ss.id === ex.sense_id)?.pos);
+        if (sense) sense.examples.push({ kg: ex.kg, en: ex.en });
+      }
+    });
+
+    const { data: related } = await client.from('related').select('sense_id, word, translation').in('sense_id', senseIds);
+    related?.forEach(r => {
+      const lemmaKey = senseIdToLemma[r.sense_id];
+      if (lemmaKey) {
+        const sense = newDict[lemmaKey].senses.find(s => s.pos === senses.find(ss => ss.id === r.sense_id)?.pos);
+        if (sense) sense.related.push({ word: r.word, translation: r.translation });
+      }
+    });
+
+    dictionary = { kg: newDict };
+    dictionaryLoadedFromSupabase = true;
+    console.log('Dictionary loaded from Supabase');
+
+    // If user already searched, refresh
+    if (searchInput.value.trim()) {
+      showResult(searchInput.value);
+    }
+  } catch (err) {
+    console.error('Failed to load from Supabase:', err);
+  }
+}
+
+searchInput.addEventListener('input', (e) => showResult(e.target.value));
 title.onclick = () => { searchInput.value = ''; showResult(''); };
-randomBtn.onclick = () => { if (dictionaryLoaded) { const w = getRandomWord(); searchInput.value = w; showResult(w); } };
-exerciseBtn.onclick = () => { if (dictionaryLoaded) generateExercise(); else loadDictionary().then(generateExercise); };
+randomBtn.onclick = () => { const w = getRandomWord(); searchInput.value = w; showResult(w); };
+exerciseBtn.onclick = generateExercise;
 closeModal.onclick = () => filterModal.style.display = 'none';
+closeExerciseModal.onclick = () => exerciseModal.style.display = 'none';
 
 keyboardToggleBtn.onclick = () => {
-  const hidden = virtualKeyboard.style.display === 'none';
-  virtualKeyboard.style.display = hidden ? 'block' : 'none';
-  keyboardToggleBtn.textContent = hidden ? 'Hide Keyboard' : 'Show Keyboard';
+  const isHidden = virtualKeyboard.style.display === 'none';
+  virtualKeyboard.style.display = isHidden ? 'block' : 'none';
+  keyboardToggleBtn.textContent = isHidden ? 'Hide Keyboard' : 'Show Keyboard';
 };
 
 document.querySelectorAll('.key').forEach(k => {
   k.onclick = () => {
     const act = k.dataset.action;
-    if (act === 'backspace') searchInput.value = searchInput.value.slice(0, -1);
-    else if (act === 'space') searchInput.value += ' ';
-    else searchInput.value += k.textContent;
+    if (act === 'backspace') {
+      searchInput.value = searchInput.value.slice(0, -1);
+    } else if (act === 'space') {
+      searchInput.value += ' ';
+    } else {
+      searchInput.value += k.textContent;
+    }
     searchInput.focus();
     showResult(searchInput.value);
   };
@@ -431,4 +472,9 @@ window.onclick = (e) => {
   if (e.target === exerciseModal) exerciseModal.style.display = 'none';
 };
 
-loadDictionary();
+// Load live data — but don’t break the page if it fails
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', loadFromSupabase);
+} else {
+  loadFromSupabase();
+}
