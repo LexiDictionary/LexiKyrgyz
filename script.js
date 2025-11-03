@@ -348,10 +348,6 @@ function attachEventListeners() {
   });
 }
 
-// ==============================
-// SUPABASE INTEGRATION (SAFE)
-// ==============================
-
 async function loadFromSupabase() {
   if (typeof window.supabase === 'undefined') {
     console.warn('Supabase SDK not loaded. Using fallback dictionary.');
@@ -430,7 +426,6 @@ async function loadFromSupabase() {
     dictionaryLoadedFromSupabase = true;
     console.log('Dictionary loaded from Supabase');
 
-    // If user already searched, refresh
     if (searchInput.value.trim()) {
       showResult(searchInput.value);
     }
@@ -472,7 +467,6 @@ window.onclick = (e) => {
   if (e.target === exerciseModal) exerciseModal.style.display = 'none';
 };
 
-// Load live data — but don’t break the page if it fails
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', loadFromSupabase);
 } else {
