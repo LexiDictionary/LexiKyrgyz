@@ -11,7 +11,6 @@ const exerciseModal = document.getElementById('exerciseModal');
 const closeExerciseModal = document.getElementById('closeExerciseModal');
 const virtualKeyboard = document.getElementById('virtualKeyboard');
 const keyboardToggleBtn = document.getElementById('keyboardToggleBtn');
-
 let dictionary = {
   kg: {
     "алма": {
@@ -22,7 +21,6 @@ let dictionary = {
       forms: ["алма", "алманы", "алмалар"],
       senses: [{
         pos: "noun",
-        definition: "round fruit with red or green skin",
         translation: "apple",
         examples: [
           { en: "I ate an apple.", kg: "Мен алма жедим." },
@@ -37,9 +35,7 @@ let dictionary = {
     }
   }
 };
-
 let dictionaryLoadedFromSupabase = false;
-
 function escapeHtml(unsafe) {
   return unsafe
     .replace(/&/g, "&amp;")
@@ -48,34 +44,41 @@ function escapeHtml(unsafe) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
-
 function isKyrgyz(text) {
   return /[\u0400-\u04FF]/.test(text);
 }
-
 function hasLemma(word) {
   return !!dictionary.kg[word];
 }
-
 function renderEntry(lemma, entry) {
   const isHeadwordKyrgyz = isKyrgyz(lemma);
   let sensesHtml = '';
-
   if (entry.senses && entry.senses.length > 1) {
     sensesHtml = entry.senses.map((sense, index) => {
-      const transClass = isKyrgyz(sense.translation) ? 'kyrgyz' : '';
+      const translations = sense.translations || [sense.translation || ''];
+      const transClass = translations.some(t => isKyrgyz(t)) ? 'kyrgyz' : '';
       let tags = '';
-      if (sense.pos) tags += `<button class="pos" onclick="showFilterList('pos', '${escapeHtml(sense.pos)}')">${escapeHtml(sense.pos)}</button>`;
+      if (sense.pos) {
+        const posBtn = document.createElement('button');
+        posBtn.className = 'pos';
+        posBtn.textContent = sense.pos;
+        posBtn.addEventListener('click', () => showFilterList('pos', sense.pos));
+        tags += posBtn.outerHTML;
+      }
       const topic = sense.topic || entry.topic;
-      if (topic) tags += `<button class="topic-tag" onclick="showFilterList('topic', '${escapeHtml(topic)}')">${escapeHtml(topic)}</button>`;
-
-      const examples = sense.examples.map(ex => `
+      if (topic) {
+        const topicBtn = document.createElement('button');
+        topicBtn.className = 'topic-tag';
+        topicBtn.textContent = topic;
+        topicBtn.addEventListener('click', () => showFilterList('topic', topic));
+        tags += topicBtn.outerHTML;
+      }
+      const examples = (sense.examples || []).map(ex => `
         <li class="example-item">
           <span class="example-original kyrgyz">${escapeHtml(ex.kg)}</span>
           <span class="example-translation">${escapeHtml(ex.en)}</span>
         </li>
       `).join('');
-
       let grammar = '';
       if (sense.grammar && Object.keys(sense.grammar).length > 0) {
         grammar = `<ul class="grammar-list">`;
@@ -84,7 +87,6 @@ function renderEntry(lemma, entry) {
         }
         grammar += `</ul>`;
       }
-
       const related = (sense.related || []).map(item => {
         const has = hasLemma(item.word);
         const wordClass = has ? 'related-word linkable' : 'related-word';
@@ -93,12 +95,11 @@ function renderEntry(lemma, entry) {
           <div class="related-translation">${escapeHtml(item.translation)}</div>
         </div>`;
       }).join('');
-
       return `
         <div class="sense-item">
           <div class="tags-container">${tags}</div>
           <span class="sense-number">${index + 1}.</span>
-          <div class="translation ${transClass}">${escapeHtml(sense.translation)}</div>
+          <div class="translation ${transClass}">${translations.map(escapeHtml).join(', ')}</div>
           <div class="section-title">Examples</div>
           <ul class="examples-list">${examples}</ul>
           <div class="section-title">Grammar</div>
@@ -110,19 +111,30 @@ function renderEntry(lemma, entry) {
     }).join('');
   } else {
     const sense = entry.senses ? entry.senses[0] : entry;
-    const transClass = isKyrgyz(sense.translation) ? 'kyrgyz' : '';
+    const translations = sense.translations || [sense.translation || ''];
+    const transClass = translations.some(t => isKyrgyz(t)) ? 'kyrgyz' : '';
     let tags = '';
-    if (sense.pos) tags += `<button class="pos" onclick="showFilterList('pos', '${escapeHtml(sense.pos)}')">${escapeHtml(sense.pos)}</button>`;
+    if (sense.pos) {
+      const posBtn = document.createElement('button');
+      posBtn.className = 'pos';
+      posBtn.textContent = sense.pos;
+      posBtn.addEventListener('click', () => showFilterList('pos', sense.pos));
+      tags += posBtn.outerHTML;
+    }
     const topic = sense.topic || entry.topic;
-    if (topic) tags += `<button class="topic-tag" onclick="showFilterList('topic', '${escapeHtml(topic)}')">${escapeHtml(topic)}</button>`;
-
-    const examples = sense.examples.map(ex => `
+    if (topic) {
+      const topicBtn = document.createElement('button');
+      topicBtn.className = 'topic-tag';
+      topicBtn.textContent = topic;
+      topicBtn.addEventListener('click', () => showFilterList('topic', topic));
+      tags += topicBtn.outerHTML;
+    }
+    const examples = (sense.examples || []).map(ex => `
       <li class="example-item">
         <span class="example-original kyrgyz">${escapeHtml(ex.kg)}</span>
         <span class="example-translation">${escapeHtml(ex.en)}</span>
       </li>
     `).join('');
-
     let grammar = '';
     if (sense.grammar && Object.keys(sense.grammar).length > 0) {
       grammar = `<ul class="grammar-list">`;
@@ -131,7 +143,6 @@ function renderEntry(lemma, entry) {
       }
       grammar += `</ul>`;
     }
-
     const related = (sense.related || []).map(item => {
       const has = hasLemma(item.word);
       const wordClass = has ? 'related-word linkable' : 'related-word';
@@ -140,11 +151,10 @@ function renderEntry(lemma, entry) {
         <div class="related-translation">${escapeHtml(item.translation)}</div>
       </div>`;
     }).join('');
-
     sensesHtml = `
       <div class="sense-item">
         <div class="tags-container">${tags}</div>
-        <div class="translation ${transClass}">${escapeHtml(sense.translation)}</div>
+        <div class="translation ${transClass}">${translations.map(escapeHtml).join(', ')}</div>
         <div class="section-title">Examples</div>
         <ul class="examples-list">${examples}</ul>
         <div class="section-title">Grammar</div>
@@ -154,14 +164,12 @@ function renderEntry(lemma, entry) {
       </div>
     `;
   }
-
   let cefr = '';
   if (entry.cefr) {
     cefr = `<div class="tags-container" style="position:absolute; right:0; top:0;">
       <button class="level-tag" onclick="showFilterList('cefr', '${escapeHtml(entry.cefr)}')">${escapeHtml(entry.cefr).toUpperCase()}</button>
     </div>`;
   }
-
   return `
     <div class="entry" style="position:relative;">
       ${cefr}
@@ -171,7 +179,6 @@ function renderEntry(lemma, entry) {
     </div>
   `;
 }
-
 function showResult(query) {
   const q = query.toLowerCase().trim();
   if (!q) {
@@ -179,10 +186,8 @@ function showResult(query) {
     attachEventListeners();
     return;
   }
-
   const isKg = isKyrgyz(q);
   let found = false;
-
   if (isKg) {
     if (dictionary.kg[q]) {
       resultsContainer.innerHTML = renderEntry(q, dictionary.kg[q]);
@@ -200,7 +205,8 @@ function showResult(query) {
     const matches = [];
     for (let w in dictionary.kg) {
       (dictionary.kg[w].senses || [dictionary.kg[w]]).forEach(s => {
-        if (s.translation.toLowerCase() === q) matches.push(w);
+        const translations = s.translations || [s.translation || ''];
+        if (translations.some(t => t.toLowerCase() === q)) matches.push(w);
       });
     }
     if (matches.length === 1) {
@@ -214,23 +220,18 @@ function showResult(query) {
       found = true;
     }
   }
-
   if (!found) {
     resultsContainer.innerHTML = `<div class="no-result">No entry found for "${escapeHtml(query)}"</div>`;
   }
-
   attachEventListeners();
 }
-
 function showFilterList(filterType, value) {
   let titleText = '';
   if (filterType === 'pos') titleText = `${value.charAt(0).toUpperCase() + value.slice(1)}s`;
   else if (filterType === 'cefr') titleText = `${value.toUpperCase()}`;
   else if (filterType === 'topic') titleText = `${value.charAt(0).toUpperCase() + value.slice(1)} Words`;
   else titleText = 'Filtered Results';
-
   modalTitle.textContent = titleText;
-
   const filteredWords = [];
   for (const [lemma, entry] of Object.entries(dictionary.kg)) {
     const senses = entry.senses || [entry];
@@ -248,45 +249,49 @@ function showFilterList(filterType, value) {
       }
     }
   }
-
   if (filteredWords.length === 0) {
     modalBody.innerHTML = `<p>No words found for this filter.</p>`;
   } else {
     let html = `<ul class="filter-list">`;
-filteredWords.forEach(w => {
-  html += `<li class="filter-item filter-word-item kyrgyz" data-word="${w}">${w}</li>`;
-});
-html += `</ul>`;
-modalBody.innerHTML = html;
+    filteredWords.forEach(w => {
+      const li = document.createElement('li');
+      li.className = 'filter-item filter-word-item kyrgyz';
+      li.dataset.word = w;
+      li.textContent = w;
+      li.addEventListener('click', () => {
+        searchInput.value = w;
+        showResult(w);
+        filterModal.style.display = 'none';
+      });
+      html += li.outerHTML;
+    });
+    html += `</ul>`;
+    modalBody.innerHTML = html;
   }
-
   filterModal.style.display = 'block';
   attachEventListeners();
 }
-
 function getRandomWord() {
   const words = Object.keys(dictionary.kg);
   return words[Math.floor(Math.random() * words.length)];
 }
-
 function generateExercise() {
   const words = Object.keys(dictionary.kg);
   if (words.length === 0) return;
   const correct = words[Math.floor(Math.random() * words.length)];
   const sense = dictionary.kg[correct].senses ? dictionary.kg[correct].senses[0] : dictionary.kg[correct];
-  const answer = sense.translation;
-
+  const translations = sense.translations || [sense.translation || ''];
+  const answer = translations[0];
   const distractors = [];
   while (distractors.length < 3) {
     const r = words[Math.floor(Math.random() * words.length)];
     if (r === correct) continue;
     const rs = dictionary.kg[r].senses ? dictionary.kg[r].senses[0] : dictionary.kg[r];
-    if (!distractors.includes(rs.translation)) distractors.push(rs.translation);
+    const rsPrimary = (rs.translations || [rs.translation])[0];
+    if (!distractors.includes(rsPrimary)) distractors.push(rsPrimary);
   }
-
   const options = [answer, ...distractors].sort(() => Math.random() - 0.5);
   const optsHtml = options.map(o => `<div class="answer-option" data-answer="${o}">${escapeHtml(o)}</div>`).join('');
-
   const body = exerciseModal.querySelector('.modal-body');
   body.innerHTML = `
     <div class="exercise-question">What's the English word for <span class="kyrgyz">${correct}</span>?</div>
@@ -297,9 +302,12 @@ function generateExercise() {
       <button class="exercise-btn-modal close-btn">Close</button>
     </div>
   `;
-
   exerciseModal.style.display = 'block';
-
+  const answerOptions = body.querySelectorAll('.answer-option');
+  answerOptions.forEach(opt => {
+    const newOpt = opt.cloneNode(true);
+    opt.parentNode.replaceChild(newOpt, opt);
+  });
   body.querySelectorAll('.answer-option').forEach(opt => {
     opt.onclick = () => {
       body.querySelectorAll('.answer-option').forEach(o => o.classList.remove('selected', 'correct', 'incorrect'));
@@ -318,20 +326,16 @@ function generateExercise() {
       fb.innerHTML = isCorrect
         ? `<h4>Correct!</h4><p>Well done!</p>`
         : `<h4>Incorrect</h4><p>The correct answer is: <strong>${escapeHtml(answer)}</strong></p>`;
-
       body.querySelector('.next-btn').onclick = generateExercise;
     };
   });
-
   body.querySelector('.close-btn').onclick = () => {
     exerciseModal.style.display = 'none';
   };
-
   closeExerciseModal.onclick = () => {
     exerciseModal.style.display = 'none';
   };
 }
-
 function attachEventListeners() {
   document.querySelectorAll('.related-word.linkable').forEach(el => {
     el.onclick = () => {
@@ -339,30 +343,20 @@ function attachEventListeners() {
       showResult(el.dataset.word);
     };
   });
-  document.querySelectorAll('.filter-word-item').forEach(el => {
-    el.onclick = () => {
-      searchInput.value = el.dataset.word;
-      showResult(el.dataset.word);
-      filterModal.style.display = 'none';
-    };
-  });
 }
-
 async function loadFromSupabase() {
   if (typeof window.supabase === 'undefined') {
     console.warn('Supabase SDK not loaded. Using fallback dictionary.');
+    normalizeDictionary(dictionary);
     return;
   }
-
   try {
     const client = window.supabase.createClient(
       'https://jvizodlmiiisubatqykg.supabase.co',
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2aXpvZGxtaWlpc3ViYXRxeWtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NjYxNTYsImV4cCI6MjA3NzI0MjE1Nn0.YD9tMUyQVq7v5gkWq-f_sQfYfD2raq_o7FeOmLjeN7I'
     );
-
     const { data: lemmas, error: lemmasErr } = await client.from('lemmas').select('id, canonical, pronunciation, cefr');
     if (lemmasErr) throw lemmasErr;
-
     const idToLemma = {};
     const newDict = {};
     lemmas.forEach(l => {
@@ -375,7 +369,6 @@ async function loadFromSupabase() {
         senses: []
       };
     });
-
     const lemmaIds = lemmas.map(l => l.id);
     const { data: forms } = await client.from('forms').select('lemma_id, form').in('lemma_id', lemmaIds);
     forms?.forEach(f => {
@@ -383,26 +376,30 @@ async function loadFromSupabase() {
         newDict[idToLemma[f.lemma_id]].forms.push(f.form);
       }
     });
-
     const { data: senses } = await client.from('senses').select('id, lemma_id, pos, translation, topic, grammar').in('lemma_id', lemmaIds);
     if (!senses || senses.length === 0) return;
-
     const senseIdToLemma = {};
     senses.forEach(s => {
       const lemmaKey = idToLemma[s.lemma_id];
       if (lemmaKey) {
         senseIdToLemma[s.id] = lemmaKey;
-        newDict[lemmaKey].senses.push({
+        const transStr = s.translation || '';
+        const translations = transStr
+          .split(',')
+          .map(t => t.trim())
+          .filter(t => t);
+        const senseObj = {
           pos: s.pos,
-          translation: s.translation,
+          translation: translations[0] || '',
+          translations: translations,
           topic: s.topic,
           grammar: s.grammar || {},
           examples: [],
           related: []
-        });
+        };
+        newDict[lemmaKey].senses.push(senseObj);
       }
     });
-
     const senseIds = senses.map(s => s.id);
     const { data: examples } = await client.from('examples').select('sense_id, kg, en').in('sense_id', senseIds);
     examples?.forEach(ex => {
@@ -412,7 +409,6 @@ async function loadFromSupabase() {
         if (sense) sense.examples.push({ kg: ex.kg, en: ex.en });
       }
     });
-
     const { data: related } = await client.from('related').select('sense_id, word, translation').in('sense_id', senseIds);
     related?.forEach(r => {
       const lemmaKey = senseIdToLemma[r.sense_id];
@@ -421,32 +417,50 @@ async function loadFromSupabase() {
         if (sense) sense.related.push({ word: r.word, translation: r.translation });
       }
     });
-
     dictionary = { kg: newDict };
     dictionaryLoadedFromSupabase = true;
     console.log('Dictionary loaded from Supabase');
-
+    normalizeDictionary(dictionary);
     if (searchInput.value.trim()) {
       showResult(searchInput.value);
     }
   } catch (err) {
     console.error('Failed to load from Supabase:', err);
+    normalizeDictionary(dictionary);
   }
 }
-
-searchInput.addEventListener('input', (e) => showResult(e.target.value));
+function normalizeDictionary(dict) {
+  for (const lemma in dict.kg) {
+    const entry = dict.kg[lemma];
+    const senses = entry.senses || [entry];
+    senses.forEach(sense => {
+      if (typeof sense.translation === 'string' && !Array.isArray(sense.translations)) {
+        sense.translations = sense.translation
+          .split(',')
+          .map(t => t.trim())
+          .filter(t => t);
+        sense.translation = sense.translations[0] || '';
+      } else if (!sense.translations) {
+        sense.translations = [sense.translation || ''];
+      }
+    });
+  }
+}
+let searchTimeout;
+searchInput.addEventListener('input', (e) => {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => showResult(e.target.value), 250);
+});
 title.onclick = () => { searchInput.value = ''; showResult(''); };
 randomBtn.onclick = () => { const w = getRandomWord(); searchInput.value = w; showResult(w); };
 exerciseBtn.onclick = generateExercise;
 closeModal.onclick = () => filterModal.style.display = 'none';
 closeExerciseModal.onclick = () => exerciseModal.style.display = 'none';
-
 keyboardToggleBtn.onclick = () => {
   const isHidden = virtualKeyboard.style.display === 'none';
   virtualKeyboard.style.display = isHidden ? 'block' : 'none';
   keyboardToggleBtn.textContent = isHidden ? 'Hide Keyboard' : 'Show Keyboard';
 };
-
 document.querySelectorAll('.key').forEach(k => {
   k.onclick = () => {
     const act = k.dataset.action;
@@ -461,12 +475,10 @@ document.querySelectorAll('.key').forEach(k => {
     showResult(searchInput.value);
   };
 });
-
 window.onclick = (e) => {
   if (e.target === filterModal) filterModal.style.display = 'none';
   if (e.target === exerciseModal) exerciseModal.style.display = 'none';
 };
-
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', loadFromSupabase);
 } else {
