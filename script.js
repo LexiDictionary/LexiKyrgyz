@@ -30,7 +30,24 @@ let dictionary = {
           { word: "алма шырыбы", translation: "apple juice" },
           { word: "алма дарагы", translation: "apple tree" }
         ],
-        grammar: { accusative: "алманы", plural: "алмалар" }
+        grammar: {
+          singular: {
+            nominative: "алма",
+            genitive: "алманын",
+            dative: "алмага",
+            accusative: "алманы",
+            locative: "алмада",
+            ablative: "алмадан"
+          },
+          plural: {
+            nominative: "алмалар",
+            genitive: "алмалардын",
+            dative: "алмаларга",
+            accusative: "алмаларды",
+            locative: "алмаларда",
+            ablative: "алмалардан"
+          }
+        }
       }]
     }
   }
@@ -50,124 +67,76 @@ function isKyrgyz(text) {
 function hasLemma(word) {
   return !!dictionary.kg[word];
 }
-function renderEntry(lemma, entry) {
-  const isHeadwordKyrgyz = isKyrgyz(lemma);
-  let sensesHtml = '';
-  if (entry.senses && entry.senses.length > 1) {
-    sensesHtml = entry.senses.map((sense, index) => {
-      const translations = sense.translations || [sense.translation || ''];
-      const transClass = translations.some(t => isKyrgyz(t)) ? 'kyrgyz' : '';
-      let tags = '';
-      if (sense.pos) {
-        const posBtn = document.createElement('button');
-        posBtn.className = 'pos';
-        posBtn.textContent = sense.pos;
-        posBtn.addEventListener('click', () => showFilterList('pos', sense.pos));
-        tags += posBtn.outerHTML;
-      }
-      const topic = sense.topic || entry.topic;
-      if (topic) {
-        const topicBtn = document.createElement('button');
-        topicBtn.className = 'topic-tag';
-        topicBtn.textContent = topic;
-        topicBtn.addEventListener('click', () => showFilterList('topic', topic));
-        tags += topicBtn.outerHTML;
-      }
-      const examples = (sense.examples || []).map(ex => `
-        <li class="example-item">
-          <span class="example-original kyrgyz">${escapeHtml(ex.kg)}</span>
-          <span class="example-translation">${escapeHtml(ex.en)}</span>
-        </li>
-      `).join('');
-      let grammar = '';
-      if (sense.grammar && Object.keys(sense.grammar).length > 0) {
-        grammar = `<ul class="grammar-list">`;
-        for (let key in sense.grammar) {
-          grammar += `<li class="grammar-item"><span class="grammar-label">${escapeHtml(key)}:</span> ${escapeHtml(sense.grammar[key])}</li>`;
-        }
-        grammar += `</ul>`;
-      }
-      const related = (sense.related || []).map(item => {
-        const has = hasLemma(item.word);
-        const wordClass = has ? 'related-word linkable' : 'related-word';
-        return `<div class="related-item">
-          <span class="${wordClass}" ${has ? `data-word="${escapeHtml(item.word)}"` : ''}>${escapeHtml(item.word)}</span>
-          <div class="related-translation">${escapeHtml(item.translation)}</div>
-        </div>`;
-      }).join('');
-      return `
-        <div class="sense-item">
-          <div class="tags-container">${tags}</div>
-          <span class="sense-number">${index + 1}.</span>
-          <div class="translation ${transClass}">${translations.map(escapeHtml).join(', ')}</div>
-          <div class="section-title">Examples</div>
-          <ul class="examples-list">${examples}</ul>
-          <div class="section-title">Grammar</div>
-          ${grammar}
-          <div class="section-title">Related</div>
-          <div class="related-list">${related}</div>
-        </div>
-      `;
-    }).join('');
-  } else {
-    const sense = entry.senses ? entry.senses[0] : entry;
-    const translations = sense.translations || [sense.translation || ''];
-    const transClass = translations.some(t => isKyrgyz(t)) ? 'kyrgyz' : '';
-    let tags = '';
-    if (sense.pos) {
-      const posBtn = document.createElement('button');
-      posBtn.className = 'pos';
-      posBtn.textContent = sense.pos;
-      posBtn.addEventListener('click', () => showFilterList('pos', sense.pos));
-      tags += posBtn.outerHTML;
-    }
-    const topic = sense.topic || entry.topic;
-    if (topic) {
-      const topicBtn = document.createElement('button');
-      topicBtn.className = 'topic-tag';
-      topicBtn.textContent = topic;
-      topicBtn.addEventListener('click', () => showFilterList('topic', topic));
-      tags += topicBtn.outerHTML;
-    }
-    const examples = (sense.examples || []).map(ex => `
-      <li class="example-item">
-        <span class="example-original kyrgyz">${escapeHtml(ex.kg)}</span>
-        <span class="example-translation">${escapeHtml(ex.en)}</span>
-      </li>
-    `).join('');
-    let grammar = '';
-    if (sense.grammar && Object.keys(sense.grammar).length > 0) {
+function renderSense(sense, entry, index) {
+  const translations = sense.translations || [sense.translation || ''];
+  const transClass = translations.some(t => isKyrgyz(t)) ? 'kyrgyz' : '';
+  let tags = '';
+  if (sense.pos) {
+    tags += `<button class="pos" data-filter="pos" data-value="${escapeHtml(sense.pos)}">${escapeHtml(sense.pos)}</button>`;
+  }
+  const topic = sense.topic || entry.topic;
+  if (topic) {
+    tags += `<button class="topic-tag" data-filter="topic" data-value="${escapeHtml(topic)}">${escapeHtml(topic)}</button>`;
+  }
+  const examples = (sense.examples || []).map(ex => `
+    <li class="example-item">
+      <span class="example-original kyrgyz">${escapeHtml(ex.kg)}</span>
+      <span class="example-translation">${escapeHtml(ex.en)}</span>
+    </li>
+  `).join('');
+  let grammar = '';
+  if (sense.grammar && Object.keys(sense.grammar).length > 0) {
+    if (sense.pos === 'noun' && sense.grammar.singular && sense.grammar.plural) {
+      const cases = ['nominative', 'genitive', 'dative', 'accusative', 'locative', 'ablative'];
+      const caseLabels = { nominative: 'Nom.', genitive: 'Gen.', dative: 'Dat.', accusative: 'Acc.', locative: 'Loc.', ablative: 'Abl.' };
+      grammar = `<div class="grammar-table"><table><thead><tr><th></th><th>Singular</th><th>Plural</th></tr></thead><tbody>`;
+      cases.forEach(c => {
+        grammar += `<tr><td class="case-label">${caseLabels[c]}</td><td>${escapeHtml(sense.grammar.singular[c] || '—')}</td><td>${escapeHtml(sense.grammar.plural[c] || '—')}</td></tr>`;
+      });
+      grammar += `</tbody></table></div>`;
+    } else {
       grammar = `<ul class="grammar-list">`;
       for (let key in sense.grammar) {
         grammar += `<li class="grammar-item"><span class="grammar-label">${escapeHtml(key)}:</span> ${escapeHtml(sense.grammar[key])}</li>`;
       }
       grammar += `</ul>`;
     }
-    const related = (sense.related || []).map(item => {
-      const has = hasLemma(item.word);
-      const wordClass = has ? 'related-word linkable' : 'related-word';
-      return `<div class="related-item">
-        <span class="${wordClass}" ${has ? `data-word="${escapeHtml(item.word)}"` : ''}>${escapeHtml(item.word)}</span>
-        <div class="related-translation">${escapeHtml(item.translation)}</div>
-      </div>`;
-    }).join('');
-    sensesHtml = `
-      <div class="sense-item">
-        <div class="tags-container">${tags}</div>
-        <div class="translation ${transClass}">${translations.map(escapeHtml).join(', ')}</div>
-        <div class="section-title">Examples</div>
-        <ul class="examples-list">${examples}</ul>
-        <div class="section-title">Grammar</div>
-        ${grammar}
-        <div class="section-title">Related</div>
-        <div class="related-list">${related}</div>
-      </div>
-    `;
+  }
+  const related = (sense.related || []).map(item => {
+    const has = hasLemma(item.word);
+    const wordClass = has ? 'related-word linkable' : 'related-word';
+    return `<div class="related-item">
+      <span class="${wordClass}" ${has ? `data-word="${escapeHtml(item.word)}"` : ''}>${escapeHtml(item.word)}</span>
+      <div class="related-translation">${escapeHtml(item.translation)}</div>
+    </div>`;
+  }).join('');
+  return `
+    <div class="sense-item">
+      <div class="tags-container">${tags}</div>
+      ${index !== undefined ? `<span class="sense-number">${index + 1}.</span>` : ''}
+      <div class="translation ${transClass}">${translations.map(escapeHtml).join(', ')}</div>
+      <div class="section-title">Examples</div>
+      <ul class="examples-list">${examples}</ul>
+      <div class="section-title">Grammar</div>
+      ${grammar}
+      <div class="section-title">Related</div>
+      <div class="related-grid">${related}</div>
+    </div>
+  `;
+}
+function renderEntry(lemma, entry) {
+  const isHeadwordKyrgyz = isKyrgyz(lemma);
+  let sensesHtml = '';
+  if (entry.senses && entry.senses.length > 1) {
+    sensesHtml = entry.senses.map((sense, index) => renderSense(sense, entry, index)).join('');
+  } else {
+    const sense = entry.senses ? entry.senses[0] : entry;
+    sensesHtml = renderSense(sense, entry);
   }
   let cefr = '';
   if (entry.cefr) {
     cefr = `<div class="tags-container" style="position:absolute; right:0; top:0;">
-      <button class="level-tag" onclick="showFilterList('cefr', '${escapeHtml(entry.cefr)}')">${escapeHtml(entry.cefr).toUpperCase()}</button>
+      <button class="level-tag" data-filter="cefr" data-value="${escapeHtml(entry.cefr)}">${escapeHtml(entry.cefr).toUpperCase()}</button>
     </div>`;
   }
   return `
@@ -254,16 +223,7 @@ function showFilterList(filterType, value) {
   } else {
     let html = `<ul class="filter-list">`;
     filteredWords.forEach(w => {
-      const li = document.createElement('li');
-      li.className = 'filter-item filter-word-item kyrgyz';
-      li.dataset.word = w;
-      li.textContent = w;
-      li.addEventListener('click', () => {
-        searchInput.value = w;
-        showResult(w);
-        filterModal.style.display = 'none';
-      });
-      html += li.outerHTML;
+      html += `<li class="filter-item filter-word-item kyrgyz" data-word="${w}">${w}</li>`;
     });
     html += `</ul>`;
     modalBody.innerHTML = html;
@@ -343,6 +303,23 @@ function attachEventListeners() {
       showResult(el.dataset.word);
     };
   });
+  document.querySelectorAll('.pos, .topic-tag, .level-tag').forEach(tag => {
+    tag.replaceWith(tag.cloneNode(true));
+  });
+  document.querySelectorAll('[data-filter]').forEach(tag => {
+    tag.addEventListener('click', () => {
+      const filter = tag.dataset.filter;
+      const value = tag.dataset.value;
+      showFilterList(filter, value);
+    });
+  });
+  document.querySelectorAll('.filter-word-item').forEach(item => {
+    item.onclick = () => {
+      searchInput.value = item.dataset.word;
+      showResult(item.dataset.word);
+      filterModal.style.display = 'none';
+    };
+  });
 }
 async function loadFromSupabase() {
   if (typeof window.supabase === 'undefined') {
@@ -388,12 +365,24 @@ async function loadFromSupabase() {
           .split(',')
           .map(t => t.trim())
           .filter(t => t);
+        let grammarObj = {};
+        if (s.grammar) {
+          try {
+            grammarObj = typeof s.grammar === 'string' ? JSON.parse(s.grammar) : s.grammar;
+          } catch (e) {
+            console.warn('Invalid JSON in grammar for sense:', s.id);
+            grammarObj = {};
+          }
+        }
+        if (s.pos === 'noun' && !grammarObj.singular && !grammarObj.plural && typeof grammarObj === 'object') {
+          grammarObj = { singular: {}, plural: {} };
+        }
         const senseObj = {
           pos: s.pos,
           translation: translations[0] || '',
           translations: translations,
           topic: s.topic,
-          grammar: s.grammar || {},
+          grammar: grammarObj,
           examples: [],
           related: []
         };
