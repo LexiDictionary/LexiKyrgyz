@@ -163,6 +163,43 @@ body {
 .related-word { font-weight:600; color:var(--text-primary); }
 .related-translation { font-size:.92rem; color:var(--text-muted); margin-top:3px; }
 
+.related-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 10px;
+}
+@media (max-width: 480px) {
+  .related-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 360px) {
+  .related-grid { grid-template-columns: 1fr; }
+}
+
+.grammar-table table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: .94rem;
+}
+.grammar-table th,
+.grammar-table td {
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+.grammar-table th {
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: .88rem;
+}
+.grammar-table .case-label {
+  color: var(--text-light);
+  font-weight: 500;
+  width: 40px;
+}
+.grammar-table tbody tr:last-child td { border-bottom: none; }
+
 .filter-modal,
 .exercise-modal {
   display: none;
