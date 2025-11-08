@@ -448,7 +448,7 @@ closeExerciseModal.onclick = () => exerciseModal.style.display = 'none';
 keyboardToggleBtn.onclick = () => {
   const isHidden = virtualKeyboard.style.display === 'none';
   virtualKeyboard.style.display = isHidden ? 'block' : 'none';
-  keyboardToggleBtn.textContent = isHidden ? 'Hide Keyboard' : 'Show Keyboard';
+  keyboardToggleBtn.textContent = isHidden ? '⌨️ Hide Keyboard' : '⌨️ Show Keyboard';
 };
 document.querySelectorAll('.key').forEach(k => {
   k.onclick = () => {
