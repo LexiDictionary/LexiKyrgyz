@@ -11,6 +11,22 @@ const exerciseModal = document.getElementById('exerciseModal');
 const closeExerciseModal = document.getElementById('closeExerciseModal');
 const virtualKeyboard = document.getElementById('virtualKeyboard');
 const keyboardToggleBtn = document.getElementById('keyboardToggleBtn');
+const reviewBtn = document.getElementById('reviewBtn');
+const savedModal = document.getElementById('savedModal');
+const closeSavedModal = document.getElementById('closeSavedModal');
+const savedModalBody = document.getElementById('savedModalBody');
+const flashcardModal = document.getElementById('flashcardModal');
+const closeFlashcardModal = document.getElementById('closeFlashcardModal');
+const flashcardModalBody = document.getElementById('flashcardModalBody');
+const authModal = document.getElementById('authModal');
+const closeAuthModal = document.getElementById('closeAuthModal');
+const authForm = document.getElementById('authForm');
+const emailInput = document.getElementById('emailInput');
+const passwordInput = document.getElementById('passwordInput');
+const authModalTitle = document.getElementById('authModalTitle');
+const authToggle = document.getElementById('toggleAuth');
+const authIndicator = document.getElementById('authIndicator');
+const userDropdown = document.getElementById('userDropdown');
 
 let dictionary = {
   kg: {
@@ -42,11 +58,11 @@ let dictionary = {
                 "мен": "жазбайм",
                 "сен": "жазбайсың",
                 "сиз": "жазбайсыз",
-                "ал": "жазбайт",
+                "ал": "жазбайt",
                 "биз": "жазбайбыз",
                 "силер": "жазбайсыңар",
                 "сиздер": "жазбайсыздар",
-                "алар": "жазышпайт"
+                "алар": "жазышпайt"
               }
             },
             "past_definite": {
@@ -108,11 +124,11 @@ let dictionary = {
                 "мен": "жазбаймын",
                 "сен": "жазбайсың",
                 "сиз": "жазбайсыз",
-                "ал": "жазбайт",
+                "ал": "жазбайt",
                 "биз": "жазбайбыз",
                 "силер": "жазбайсыңар",
                 "сиздер": "жазбайсыздар",
-                "алар": "жазышпайт"
+                "алар": "жазышпайt"
               }
             },
             "future_indefinite": {
@@ -280,38 +296,16 @@ function renderNounPronounGrammar(grammarObj) {
 
 function renderAdjectiveGrammar(grammarObj) {
   let html = '';
-  
-if (grammarObj.comparative || grammarObj.superlative) {
-  const lineStyle = `
-    display: block;
-    color: var(--text-secondary);
-    font-weight: 600;
-    font-size: 0.88rem;
-    margin: 18px 0 6px 8px;
-    line-height: 1.4;
-  `.replace(/\s+/g, ' ').trim();
-
-  const valueStyle = `
-    margin-left: 8px;
-    font-size: 0.94rem;
-    font-weight: normal;
-    color: var(--text-primary);
-  `.replace(/\s+/g, ' ').trim();
-
-  if (grammarObj.comparative) {
-    html += `<div style="${lineStyle}">
-               <span style="display:inline-block; min-width:110px;">Comparative:</span>
-               <span style="${valueStyle}" class="kyrgyz">${escapeHtml(grammarObj.comparative)}</span>
-             </div>`;
+  if (grammarObj.comparative || grammarObj.superlative) {
+    const lineStyle = `display: block; color: var(--text-secondary); font-weight: 600; font-size: 0.88rem; margin: 18px 0 6px 8px; line-height: 1.4;`.replace(/\s+/g, ' ').trim();
+    const valueStyle = `margin-left: 8px; font-size: 0.94rem; font-weight: normal; color: var(--text-primary);`.replace(/\s+/g, ' ').trim();
+    if (grammarObj.comparative) {
+      html += `<div style="${lineStyle}"><span style="display:inline-block; min-width:110px;">Comparative:</span><span style="${valueStyle}" class="kyrgyz">${escapeHtml(grammarObj.comparative)}</span></div>`;
+    }
+    if (grammarObj.superlative) {
+      html += `<div style="${lineStyle}"><span style="display:inline-block; min-width:110px;">Superlative:</span><span style="${valueStyle}" class="kyrgyz">${escapeHtml(grammarObj.superlative)}</span></div>`;
+    }
   }
-  if (grammarObj.superlative) {
-    html += `<div style="${lineStyle}">
-               <span style="display:inline-block; min-width:110px;">Superlative:</span>
-               <span style="${valueStyle}" class="kyrgyz">${escapeHtml(grammarObj.superlative)}</span>
-             </div>`;
-  }
-}
-  
   if (grammarObj.cases) {
     html += renderNounPronounGrammar(grammarObj.cases);
   }
@@ -334,94 +328,50 @@ function renderVerbGrammar(grammarObj) {
 
   if (tenses.present) {
     html += `<div class="section-title" style="margin-top:18px;">${tenseNames.present}</div>`;
-    html += `<table class="grammar-table" style="font-size:0.92rem; width:100%; margin-top:8px;"><thead><tr>
-      <th style="text-align:left; padding:6px 8px;">Person</th>
-      <th style="padding:6px 8px;">Positive</th>
-      <th style="padding:6px 8px;">Negative</th>
-    </tr></thead><tbody>`;
+    html += `<table class="grammar-table" style="font-size:0.92rem; width:100%; margin-top:8px;"><thead><tr><th style="text-align:left; padding:6px 8px;">Person</th><th style="padding:6px 8px;">Positive</th><th style="padding:6px 8px;">Negative</th></tr></thead><tbody>`;
     persons.forEach(person => {
       const pos = tenses.present.positive?.[person] || '—';
       const neg = tenses.present.negative?.[person] || '—';
-      html += `<tr>
-        <td style="padding:6px 8px; color:var(--text-muted);">${escapeHtml(person)}</td>
-        <td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(pos)}</td>
-        <td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(neg)}</td>
-      </tr>`;
+      html += `<tr><td style="padding:6px 8px; color:var(--text-muted);">${escapeHtml(person)}</td><td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(pos)}</td><td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(neg)}</td></tr>`;
     });
     html += `</tbody></table>`;
   }
 
   if (tenses.past_definite || tenses.past_indefinite) {
     html += `<div class="section-title" style="margin-top:24px;">Past Tenses</div>`;
-    html += `<table class="grammar-table" style="font-size:0.92rem; width:100%; margin-top:8px;"><thead><tr>
-      <th style="text-align:left; padding:6px 8px;">Person</th>
-      <th style="padding:6px 8px;">Past (Definite)<br><small>Positive</small></th>
-      <th style="padding:6px 8px;">Past (Definite)<br><small>Negative</small></th>
-      <th style="padding:6px 8px;">Past (Indefinite)<br><small>Positive</small></th>
-      <th style="padding:6px 8px;">Past (Indefinite)<br><small>Negative</small></th>
-    </tr></thead><tbody>`;
+    html += `<table class="grammar-table" style="font-size:0.92rem; width:100%; margin-top:8px;"><thead><tr><th style="text-align:left; padding:6px 8px;">Person</th><th style="padding:6px 8px;">Past (Definite)<br><small>Positive</small></th><th style="padding:6px 8px;">Past (Definite)<br><small>Negative</small></th><th style="padding:6px 8px;">Past (Indefinite)<br><small>Positive</small></th><th style="padding:6px 8px;">Past (Indefinite)<br><small>Negative</small></th></tr></thead><tbody>`;
     persons.forEach(person => {
       const pd_pos = tenses.past_definite?.positive?.[person] || '—';
       const pd_neg = tenses.past_definite?.negative?.[person] || '—';
       const pi_pos = tenses.past_indefinite?.positive?.[person] || '—';
       const pi_neg = tenses.past_indefinite?.negative?.[person] || '—';
-      html += `<tr>
-        <td style="padding:6px 8px; color:var(--text-muted);">${escapeHtml(person)}</td>
-        <td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(pd_pos)}</td>
-        <td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(pd_neg)}</td>
-        <td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(pi_pos)}</td>
-        <td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(pi_neg)}</td>
-      </tr>`;
+      html += `<tr><td style="padding:6px 8px; color:var(--text-muted);">${escapeHtml(person)}</td><td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(pd_pos)}</td><td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(pd_neg)}</td><td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(pi_pos)}</td><td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(pi_neg)}</td></tr>`;
     });
     html += `</tbody></table>`;
   }
 
   if (tenses.future_definite || tenses.future_indefinite) {
     html += `<div class="section-title" style="margin-top:24px;">Future Tenses</div>`;
-    html += `<table class="grammar-table" style="font-size:0.92rem; width:100%; margin-top:8px;"><thead><tr>
-      <th style="text-align:left; padding:6px 8px;">Person</th>
-      <th style="padding:6px 8px;">Future (Definite)<br><small>Positive</small></th>
-      <th style="padding:6px 8px;">Future (Definite)<br><small>Negative</small></th>
-      <th style="padding:6px 8px;">Future (Indefinite)<br><small>Positive</small></th>
-      <th style="padding:6px 8px;">Future (Indefinite)<br><small>Negative</small></th>
-    </tr></thead><tbody>`;
+    html += `<table class="grammar-table" style="font-size:0.92rem; width:100%; margin-top:8px;"><thead><tr><th style="text-align:left; padding:6px 8px;">Person</th><th style="padding:6px 8px;">Future (Definite)<br><small>Positive</small></th><th style="padding:6px 8px;">Future (Definite)<br><small>Negative</small></th><th style="padding:6px 8px;">Future (Indefinite)<br><small>Positive</small></th><th style="padding:6px 8px;">Future (Indefinite)<br><small>Negative</small></th></tr></thead><tbody>`;
     persons.forEach(person => {
       const fd_pos = tenses.future_definite?.positive?.[person] || '—';
       const fd_neg = tenses.future_definite?.negative?.[person] || '—';
       const fi_pos = tenses.future_indefinite?.positive?.[person] || '—';
       const fi_neg = tenses.future_indefinite?.negative?.[person] || '—';
-      html += `<tr>
-        <td style="padding:6px 8px; color:var(--text-muted);">${escapeHtml(person)}</td>
-        <td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(fd_pos)}</td>
-        <td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(fd_neg)}</td>
-        <td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(fi_pos)}</td>
-        <td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(fi_neg)}</td>
-      </tr>`;
+      html += `<tr><td style="padding:6px 8px; color:var(--text-muted);">${escapeHtml(person)}</td><td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(fd_pos)}</td><td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(fd_neg)}</td><td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(fi_pos)}</td><td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(fi_neg)}</td></tr>`;
     });
     html += `</tbody></table>`;
   }
 
   if (tenses.conditional || tenses.conditional_past) {
     html += `<div class="section-title" style="margin-top:24px;">Conditional Forms</div>`;
-    html += `<table class="grammar-table" style="font-size:0.92rem; width:100%; margin-top:8px;"><thead><tr>
-      <th style="text-align:left; padding:6px 8px;">Person</th>
-      <th style="padding:6px 8px;">Conditional<br><small>Positive</small></th>
-      <th style="padding:6px 8px;">Conditional<br><small>Negative</small></th>
-      <th style="padding:6px 8px;">Conditional Past<br><small>Positive</small></th>
-      <th style="padding:6px 8px;">Conditional Past<br><small>Negative</small></th>
-    </tr></thead><tbody>`;
+    html += `<table class="grammar-table" style="font-size:0.92rem; width:100%; margin-top:8px;"><thead><tr><th style="text-align:left; padding:6px 8px;">Person</th><th style="padding:6px 8px;">Conditional<br><small>Positive</small></th><th style="padding:6px 8px;">Conditional<br><small>Negative</small></th><th style="padding:6px 8px;">Conditional Past<br><small>Positive</small></th><th style="padding:6px 8px;">Conditional Past<br><small>Negative</small></th></tr></thead><tbody>`;
     persons.forEach(person => {
       const c_pos = tenses.conditional?.positive?.[person] || '—';
       const c_neg = tenses.conditional?.negative?.[person] || '—';
       const cp_pos = tenses.conditional_past?.positive?.[person] || '—';
       const cp_neg = tenses.conditional_past?.negative?.[person] || '—';
-      html += `<tr>
-        <td style="padding:6px 8px; color:var(--text-muted);">${escapeHtml(person)}</td>
-        <td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(c_pos)}</td>
-        <td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(c_neg)}</td>
-        <td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(cp_pos)}</td>
-        <td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(cp_neg)}</td>
-      </tr>`;
+      html += `<tr><td style="padding:6px 8px; color:var(--text-muted);">${escapeHtml(person)}</td><td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(c_pos)}</td><td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(c_neg)}</td><td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(cp_pos)}</td><td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(cp_neg)}</td></tr>`;
     });
     html += `</tbody></table>`;
   }
@@ -438,49 +388,13 @@ function renderVerbGrammar(grammarObj) {
     const sgForNeg = neg.singular?.formal || '—';
     const plInfNeg = neg.plural?.informal || '—';
     const plForNeg = neg.plural?.formal || '—';
-
     html += `<div class="section-title" style="margin-top:24px;">Imperative</div>`;
-    html += `<table class="grammar-table" style="font-size:0.92rem; width:100%; margin-top:8px;">
-      <thead>
-        <tr>
-          <th style="text-align:left; padding:6px 8px;"></th>
-          <th colspan="2" style="padding:6px 8px; text-align:center;">Positive</th>
-          <th colspan="2" style="padding:6px 8px; text-align:center;">Negative</th>
-        </tr>
-        <tr style="font-size:0.8rem; color:var(--text-muted);">
-          <th></th>
-          <th style="padding:4px 8px;">Informal</th>
-          <th style="padding:4px 8px;">Formal</th>
-          <th style="padding:4px 8px;">Informal</th>
-          <th style="padding:4px 8px;">Formal</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td style="padding:6px 8px; color:var(--text-muted);">Singular</td>
-          <td class="kyrgyz">${escapeHtml(sgInfPos)}</td>
-          <td class="kyrgyz">${escapeHtml(sgForPos)}</td>
-          <td class="kyrgyz">${escapeHtml(sgInfNeg)}</td>
-          <td class="kyrgyz">${escapeHtml(sgForNeg)}</td>
-        </tr>
-        <tr>
-          <td style="padding:6px 8px; color:var(--text-muted);">Plural</td>
-          <td class="kyrgyz">${escapeHtml(plInfPos)}</td>
-          <td class="kyrgyz">${escapeHtml(plForPos)}</td>
-          <td class="kyrgyz">${escapeHtml(plInfNeg)}</td>
-          <td class="kyrgyz">${escapeHtml(plForNeg)}</td>
-        </tr>
-      </tbody>
-    </table>`;
+    html += `<table class="grammar-table" style="font-size:0.92rem; width:100%; margin-top:8px;"><thead><tr><th style="text-align:left; padding:6px 8px;"></th><th colspan="2" style="padding:6px 8px; text-align:center;">Positive</th><th colspan="2" style="padding:6px 8px; text-align:center;">Negative</th></tr><tr style="font-size:0.8rem; color:var(--text-muted);"><th></th><th style="padding:4px 8px;">Informal</th><th style="padding:4px 8px;">Formal</th><th style="padding:4px 8px;">Informal</th><th style="padding:4px 8px;">Formal</th></tr></thead><tbody><tr><td style="padding:6px 8px; color:var(--text-muted);">Singular</td><td class="kyrgyz">${escapeHtml(sgInfPos)}</td><td class="kyrgyz">${escapeHtml(sgForPos)}</td><td class="kyrgyz">${escapeHtml(sgInfNeg)}</td><td class="kyrgyz">${escapeHtml(sgForNeg)}</td></tr><tr><td style="padding:6px 8px; color:var(--text-muted);">Plural</td><td class="kyrgyz">${escapeHtml(plInfPos)}</td><td class="kyrgyz">${escapeHtml(plForPos)}</td><td class="kyrgyz">${escapeHtml(plInfNeg)}</td><td class="kyrgyz">${escapeHtml(plForNeg)}</td></tr></tbody></table>`;
   }
 
   if (grammarObj.participles) {
     html += `<div class="section-title" style="margin-top:24px;">Participles</div>`;
-    html += `<table class="grammar-table" style="font-size:0.92rem; width:100%; margin-top:8px;"><thead><tr>
-      <th style="text-align:left; padding:6px 8px;">Type</th>
-      <th style="padding:6px 8px;">Positive</th>
-      <th style="padding:6px 8px;">Negative</th>
-    </tr></thead><tbody>`;
+    html += `<table class="grammar-table" style="font-size:0.92rem; width:100%; margin-top:8px;"><thead><tr><th style="text-align:left; padding:6px 8px;">Type</th><th style="padding:6px 8px;">Positive</th><th style="padding:6px 8px;">Negative</th></tr></thead><tbody>`;
     const participleLabels = {
       present_imperfective: "Present (imperfective)",
       present_perfective: "Present (perfective)",
@@ -495,19 +409,13 @@ function renderVerbGrammar(grammarObj) {
         const label = participleLabels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
         const pos = value.positive || '—';
         const neg = value.negative || '—';
-        html += `<tr>
-          <td style="padding:6px 8px; color:var(--text-muted);">${escapeHtml(label)}</td>
-          <td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(pos)}</td>
-          <td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(neg)}</td>
-        </tr>`;
+        html += `<tr><td style="padding:6px 8px; color:var(--text-muted);">${escapeHtml(label)}</td><td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(pos)}</td><td style="padding:6px 8px;" class="kyrgyz">${escapeHtml(neg)}</td></tr>`;
       }
     });
     html += `</tbody></table>`;
   }
 
-  html += `<p style="font-size:0.84rem; color:var(--text-light); margin-top:16px; font-style:italic;">
-    The Kyrgyz verb table is more complex; this version shows the main conjugation forms for learners.
-  </p>`;
+  html += `<p style="font-size:0.84rem; color:var(--text-light); margin-top:16px; font-style:italic;">The Kyrgyz verb table is more complex; this version shows the main conjugation forms for learners.</p>`;
   return html;
 }
 
@@ -603,13 +511,16 @@ function renderEntry(lemma, entry) {
   }
   let cefr = '';
   if (entry.cefr) {
-    cefr = `<div class="tags-container" style="position:absolute; right:0; top:0;">
-      <button class="level-tag" data-filter="cefr" data-value="${escapeHtml(entry.cefr)}">${escapeHtml(entry.cefr).toUpperCase()}</button>
-    </div>`;
+    cefr = `<button class="level-tag" data-filter="cefr" data-value="${escapeHtml(entry.cefr)}" style="position:absolute; right:0; top:0;">${escapeHtml(entry.cefr).toUpperCase()}</button>`;
   }
+  const isSaved = currentUser && savedWords.has(lemma);
+  const heartSymbol = isSaved ? '❤️' : '♡';
+  const heartClass = isSaved ? 'save-heart saved' : 'save-heart';
+  const heartBtn = `<div class="${heartClass}" data-lemma="${escapeHtml(lemma)}">${heartSymbol}</div>`;
   return `
     <div class="entry" style="position:relative;">
       ${cefr}
+      ${heartBtn}
       <div class="headword ${isHeadwordKyrgyz ? 'kyrgyz' : ''}">${escapeHtml(entry.canonical)}</div>
       <div class="pronunciation">${escapeHtml(entry.pronunciation)}</div>
       ${sensesHtml}
@@ -644,7 +555,7 @@ function showResult(query) {
     for (let w in dictionary.kg) {
       (dictionary.kg[w].senses || [dictionary.kg[w]]).forEach(s => {
         const translations = s.translations || [s.translation || ''];
-        if (translations.some(t => t.toLowerCase() === q)) matches.push(w);
+        if (translations.some(t => t.toLowerCase().startsWith(q))) matches.push(w);
       });
     }
     if (matches.length === 1) {
@@ -760,6 +671,7 @@ function generateExercise() {
       fb.innerHTML = isCorrect
         ? `<h4>Correct!</h4><p>Well done!</p>`
         : `<h4>Incorrect</h4><p>The correct answer is: <strong>${escapeHtml(answer)}</strong></p>`;
+      if (currentUser) updateQuizStats(isCorrect);
       body.querySelector('.next-btn').onclick = generateExercise;
     };
   });
@@ -795,6 +707,566 @@ function attachEventListeners() {
       filterModal.style.display = 'none';
     };
   });
+  document.querySelectorAll('.save-heart').forEach(btn => {
+    const lemma = btn.dataset.lemma;
+    btn.onclick = () => {
+      if (!currentUser) {
+        showTooltip(btn, 'Sign in to save words');
+        return;
+      }
+      toggleSaveWord(lemma, btn);
+    };
+  });
+  document.querySelectorAll('.saved-item').forEach(item => {
+    item.onclick = () => {
+      searchInput.value = item.dataset.word;
+      showResult(item.dataset.word);
+      savedModal.style.display = 'none';
+    };
+    const removeBtn = item.querySelector('.remove-word');
+    if (removeBtn) {
+      removeBtn.onclick = (e) => {
+        e.stopPropagation();
+        const lemma = item.dataset.word;
+        removeFromSaved(lemma);
+        item.remove();
+        const remaining = savedModalBody.querySelectorAll('.saved-item').length;
+        if (remaining === 0) {
+          savedModalBody.innerHTML = '<p>No saved words yet.</p>';
+        }
+        if (reviewBtn) reviewBtn.disabled = savedWords.size < 10;
+      };
+    }
+  });
+}
+
+const supabase = window.supabase.createClient(
+  'https://jvizodlmiiisubatqykg.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2aXpvZGxtaWlpc3ViYXRxeWtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NjYxNTYsImV4cCI6MjA3NzI0MjE1Nn0.YD9tMUyQVq7v5gkWq-f_sQfYfD2raq_o7FeOmLjeN7I'
+);
+
+let currentUser = null;
+let savedWords = new Set();
+let quizStats = { correct: 0, total: 0 };
+
+function showTooltip(element, text) {
+  const tooltip = document.createElement('div');
+  tooltip.className = 'save-tooltip';
+  tooltip.textContent = text;
+  document.body.appendChild(tooltip);
+  const rect = element.getBoundingClientRect();
+  tooltip.style.left = (rect.left + window.scrollX + rect.width / 2 - tooltip.offsetWidth / 2) + 'px';
+  tooltip.style.top = (rect.top + window.scrollY - tooltip.offsetHeight - 8) + 'px';
+  setTimeout(() => {
+    if (tooltip.parentNode) tooltip.parentNode.removeChild(tooltip);
+  }, 2000);
+}
+
+async function toggleSaveWord(lemma, btn) {
+  const isCurrentlySaved = savedWords.has(lemma);
+  if (isCurrentlySaved) {
+    const { error } = await supabase
+      .from('user_favourites')
+      .delete()
+      .eq('user_id', currentUser.id)
+      .eq('lemma', lemma);
+    if (!error) {
+      savedWords.delete(lemma);
+      btn.textContent = '♡';
+      btn.classList.remove('saved');
+    }
+  } else {
+    const { error } = await supabase
+      .from('user_favourites')
+      .insert({ user_id: currentUser.id, lemma });
+    if (!error) {
+      savedWords.add(lemma);
+      btn.textContent = '❤️';
+      btn.classList.add('saved');
+    }
+  }
+  renderAuthIndicator();
+  if (reviewBtn) reviewBtn.disabled = savedWords.size < 10;
+}
+
+async function removeFromSaved(lemma) {
+  if (!currentUser) return;
+  await supabase
+    .from('user_favourites')
+    .delete()
+    .eq('user_id', currentUser.id)
+    .eq('lemma', lemma);
+  savedWords.delete(lemma);
+  renderAuthIndicator();
+  if (reviewBtn) reviewBtn.disabled = savedWords.size < 10;
+}
+
+async function updateSavedWords() {
+  if (!currentUser) {
+    savedWords.clear();
+    return;
+  }
+  const { data, error } = await supabase
+    .from('user_favourites')
+    .select('lemma')
+    .eq('user_id', currentUser.id);
+  if (error) return;
+  savedWords = new Set(data.map(item => item.lemma));
+  renderAuthIndicator();
+  if (reviewBtn) reviewBtn.disabled = savedWords.size < 10;
+}
+
+async function loadQuizStats() {
+  if (!currentUser) {
+    quizStats = { correct: 0, total: 0 };
+    return;
+  }
+  const { data, error } = await supabase
+    .from('user_quiz_stats')
+    .select('correct, total')
+    .eq('user_id', currentUser.id)
+    .single();
+  if (error && error.code !== 'PGRST116') return;
+  if (data) {
+    quizStats = { correct: data.correct, total: data.total };
+  } else {
+    quizStats = { correct: 0, total: 0 };
+    await supabase.from('user_quiz_stats').insert({
+      user_id: currentUser.id,
+      correct: 0,
+      total: 0
+    });
+  }
+  renderAuthIndicator();
+}
+
+async function updateQuizStats(isCorrect) {
+  if (!currentUser) return;
+  quizStats.total += 1;
+  if (isCorrect) quizStats.correct += 1;
+  await supabase
+    .from('user_quiz_stats')
+    .update({ correct: quizStats.correct, total: quizStats.total })
+    .eq('user_id', currentUser.id);
+  renderAuthIndicator();
+}
+
+function renderAuthIndicator() {
+  if (!authIndicator) return;
+  if (!currentUser) {
+    authIndicator.innerHTML = '<a id="signInLink">Sign in</a>';
+    const link = document.getElementById('signInLink');
+    if (link && authModal) {
+      link.onclick = () => authModal.style.display = 'flex';
+    }
+  } else {
+    const percent = quizStats.total > 0 ? Math.round((quizStats.correct / quizStats.total) * 100) : 0;
+    authIndicator.innerHTML = `
+      <span>
+        <a id="savedCount">❤️ ${savedWords.size}</a> · 
+        🤓 ${percent}% (${quizStats.correct}/${quizStats.total}) · 
+        <a id="userActionsLink" style="text-decoration:none;">👤</a>
+      </span>
+    `;
+    document.getElementById('savedCount').onclick = showSavedWords;
+    document.getElementById('userActionsLink').onclick = toggleUserDropdown;
+  }
+}
+
+function toggleUserDropdown() {
+  if (!userDropdown) return;
+  userDropdown.style.display = userDropdown.style.display === 'block' ? 'none' : 'block';
+  userDropdown.innerHTML = `
+    <a href="#" id="dropdownSaved">Saved Words</a>
+    <a href="#" id="dropdownReset">Reset Quiz Stats…</a>
+    <a href="#" id="dropdownLogout">Logout</a>
+  `;
+  document.getElementById('dropdownSaved').onclick = (e) => { e.preventDefault(); showSavedWords(); };
+  document.getElementById('dropdownReset').onclick = (e) => { 
+    e.preventDefault(); 
+    if (confirm('This will delete all your quiz statistics forever. Continue?')) {
+      resetQuizStats(); 
+    } 
+  };
+  document.getElementById('dropdownLogout').onclick = (e) => { e.preventDefault(); signOut(); };
+}
+
+async function resetQuizStats() {
+  quizStats = { correct: 0, total: 0 };
+  await supabase
+    .from('user_quiz_stats')
+    .update({ correct: 0, total: 0 })
+    .eq('user_id', currentUser.id);
+  renderAuthIndicator();
+}
+
+async function showSavedWords() {
+  if (!savedModal || !savedModalBody) return;
+  if (savedWords.size === 0) {
+    savedModalBody.innerHTML = '<p>No saved words yet.</p>';
+  } else {
+    let html = '<ul class="saved-list">';
+    Array.from(savedWords).forEach(w => {
+      html += `
+        <li class="saved-item kyrgyz" data-word="${w}">
+          <span>${escapeHtml(w)}</span>
+          <button class="remove-word" title="Remove">✕</button>
+        </li>`;
+    });
+    html += '</ul>';
+    savedModalBody.innerHTML = html;
+  }
+  savedModal.style.display = 'block';
+  attachEventListeners();
+}
+
+async function handleAuth(e, type) {
+  e.preventDefault();
+  if (!emailInput || !passwordInput) return;
+  const email = emailInput.value.trim();
+  const password = passwordInput.value;
+  if (!email || !password) return;
+  let user = null;
+  if (type === 'signin') {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      alert('Sign-in failed: ' + error.message);
+      return;
+    }
+    user = data.user;
+  } else {
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) {
+      alert('Sign-up failed: ' + error.message);
+      return;
+    }
+    user = data.user;
+    if (!user) {
+      alert('Check email to confirm account.');
+      return;
+    }
+  }
+  if (user) {
+    currentUser = user;
+    await updateSavedWords();
+    await loadQuizStats();
+    renderAuthIndicator();
+    if (authModal) authModal.style.display = 'none';
+  }
+}
+
+async function signOut() {
+  await supabase.auth.signOut();
+  currentUser = null;
+  savedWords.clear();
+  quizStats = { correct: 0, total: 0 };
+  renderAuthIndicator();
+  if (reviewBtn) reviewBtn.disabled = true;
+  if (userDropdown) userDropdown.style.display = 'none';
+}
+
+async function startFlashcardSession() {
+  if (savedWords.size < 10) return;
+  const words = Array.from(savedWords).sort(() => 0.5 - Math.random()).slice(0, 10);
+  let currentIndex = 0;
+  let responses = { '🙂': 0, '😐': 0, '😞': 0 };
+
+  function showCard() {
+    if (currentIndex >= words.length) {
+      const summary = `🙂×${responses['🙂']}, 😐×${responses['😐']}, 😞×${responses['😞']}`;
+      if (!flashcardModalBody) return;
+      flashcardModalBody.innerHTML = `
+        <div class="flashcard-content">
+          <h3>Session complete!</h3>
+          <p>${summary}</p>
+        </div>
+      `;
+      return;
+    }
+    const word = words[currentIndex];
+    const entry = dictionary.kg[word];
+    const sense = entry?.senses ? entry.senses[0] : entry;
+    const translation = sense?.translation || '—';
+    if (!flashcardModalBody) return;
+    flashcardModalBody.innerHTML = `
+      <div class="flashcard-content">
+        <div class="flashcard-progress">${currentIndex + 1}/10</div>
+        <div class="flashcard-word">${escapeHtml(word)}</div>
+        <div class="flashcard-translation" style="display:none;">${escapeHtml(translation)}</div>
+        <div class="flashcard-emojis">
+          <button id="happyBtn">🙂</button>
+          <button id="mehBtn">😐</button>
+          <button id="sadBtn">😞</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('happyBtn').onclick = () => handleResponse('🙂');
+    document.getElementById('mehBtn').onclick = () => handleResponse('😐');
+    document.getElementById('sadBtn').onclick = () => handleResponse('😞');
+  }
+
+  function handleResponse(emoji) {
+    const buttons = flashcardModalBody.querySelectorAll('.flashcard-emojis button');
+    buttons.forEach(b => b.disabled = true);
+    responses[emoji]++;
+    const translationEl = flashcardModalBody.querySelector('.flashcard-translation');
+    if (translationEl) {
+      translationEl.style.display = 'block';
+    }
+    const existingNext = flashcardModalBody.querySelector('.flashcard-next');
+    if (existingNext) existingNext.remove();
+    const nextBtn = document.createElement('button');
+    nextBtn.className = 'flashcard-next';
+    nextBtn.textContent = '➡️';
+    nextBtn.onclick = () => {
+      currentIndex++;
+      showCard();
+    };
+    const emojisContainer = flashcardModalBody.querySelector('.flashcard-emojis');
+    if (emojisContainer) {
+      emojisContainer.parentNode.insertBefore(nextBtn, emojisContainer.nextSibling);
+    }
+  }
+
+  if (flashcardModal) flashcardModal.style.display = 'flex';
+  showCard();
+}
+
+function setupAuthToggle() {
+  if (!authToggle) return;
+  authToggle.onclick = (e) => {
+    e.preventDefault();
+    if (!authModalTitle) return;
+    const isSignIn = authModalTitle.textContent === 'Sign In';
+    if (isSignIn) {
+      authModalTitle.textContent = 'Sign Up';
+      if (document.querySelector('.auth-signin')) document.querySelector('.auth-signin').style.display = 'none';
+      if (document.querySelector('.auth-signup')) document.querySelector('.auth-signup').style.display = 'block';
+      authToggle.innerHTML = 'Already have an account? <a href="#" id="toggleAuth">Sign in</a>';
+    } else {
+      authModalTitle.textContent = 'Sign In';
+      if (document.querySelector('.auth-signin')) document.querySelector('.auth-signin').style.display = 'block';
+      if (document.querySelector('.auth-signup')) document.querySelector('.auth-signup').style.display = 'none';
+      authToggle.innerHTML = 'New here? <a href="#" id="toggleAuth">Create an account</a>';
+    }
+    setupAuthToggle();
+  };
+}
+
+let suggestionTimeout;
+let selectedSuggestionIndex = -1;
+const suggestionsContainer = document.getElementById('searchSuggestions');
+
+function showSuggestions(query) {
+  if (!dictionaryLoadedFromSupabase || query.length < 2) {
+    suggestionsContainer.style.display = 'none';
+    selectedSuggestionIndex = -1;
+    return;
+  }
+
+  const lowerQuery = query.toLowerCase();
+  const matches = new Set();
+
+  Object.keys(dictionary.kg).forEach(lemma => {
+    if (lemma.toLowerCase().startsWith(lowerQuery)) {
+      matches.add(lemma);
+    }
+  });
+
+  Object.entries(dictionary.kg).forEach(([lemma, entry]) => {
+    (entry.senses || [entry]).forEach(sense => {
+      const translations = sense.translations || [sense.translation || ''];
+      if (translations.some(t => t.toLowerCase().startsWith(lowerQuery))) {
+        matches.add(lemma);
+      }
+    });
+  });
+
+  const sortedMatches = Array.from(matches).sort().slice(0, 8);
+
+  if (sortedMatches.length === 0) {
+    suggestionsContainer.style.display = 'none';
+    selectedSuggestionIndex = -1;
+    return;
+  }
+
+  let html = '';
+  sortedMatches.forEach((match, index) => {
+    const isSelected = index === selectedSuggestionIndex;
+    html += `<div class="search-suggestion ${isSelected ? 'selected' : ''}" data-word="${escapeHtml(match)}">${escapeHtml(match)}</div>`;
+  });
+  suggestionsContainer.innerHTML = html;
+  suggestionsContainer.style.display = 'block';
+
+  suggestionsContainer.querySelectorAll('.search-suggestion').forEach((item, index) => {
+    item.onclick = () => {
+      searchInput.value = item.dataset.word;
+      hideSuggestions();
+      showResult(item.dataset.word);
+    };
+    item.onmouseover = () => {
+      selectedSuggestionIndex = index;
+      updateSelectedSuggestion();
+    };
+  });
+}
+
+function hideSuggestions() {
+  suggestionsContainer.style.display = 'none';
+  selectedSuggestionIndex = -1;
+}
+
+function updateSelectedSuggestion() {
+  const items = suggestionsContainer.querySelectorAll('.search-suggestion');
+  items.forEach((item, index) => {
+    if (index === selectedSuggestionIndex) {
+      item.classList.add('selected');
+    } else {
+      item.classList.remove('selected');
+    }
+  });
+}
+
+searchInput.addEventListener('keydown', (e) => {
+  const items = suggestionsContainer.querySelectorAll('.search-suggestion');
+  if (suggestionsContainer.style.display === 'none') return;
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    selectedSuggestionIndex = Math.min(selectedSuggestionIndex + 1, items.length - 1);
+    updateSelectedSuggestion();
+    items[selectedSuggestionIndex]?.scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    selectedSuggestionIndex = Math.max(selectedSuggestionIndex - 1, -1);
+    updateSelectedSuggestion();
+    if (selectedSuggestionIndex >= 0) {
+      items[selectedSuggestionIndex]?.scrollIntoView({ block: 'nearest' });
+    }
+  } else if (e.key === 'Enter' && selectedSuggestionIndex >= 0) {
+    e.preventDefault();
+    const word = items[selectedSuggestionIndex].dataset.word;
+    searchInput.value = word;
+    hideSuggestions();
+    showResult(word);
+  } else if (e.key === 'Escape') {
+    hideSuggestions();
+  }
+});
+
+searchInput.addEventListener('input', (e) => {
+  clearTimeout(suggestionTimeout);
+  const value = e.target.value;
+  if (value.trim() === '') {
+    hideSuggestions();
+    return;
+  }
+  suggestionTimeout = setTimeout(() => {
+    showSuggestions(value);
+  }, 150);
+});
+
+let isClickingSuggestion = false;
+suggestionsContainer.addEventListener('mousedown', () => {
+  isClickingSuggestion = true;
+});
+searchInput.addEventListener('blur', () => {
+  setTimeout(() => {
+    if (!isClickingSuggestion) {
+      hideSuggestions();
+    }
+    isClickingSuggestion = false;
+  }, 150);
+});
+
+if (closeModal) closeModal.onclick = () => { if (filterModal) filterModal.style.display = 'none'; };
+if (closeExerciseModal) closeExerciseModal.onclick = () => { if (exerciseModal) exerciseModal.style.display = 'none'; };
+if (closeSavedModal) closeSavedModal.onclick = () => { if (savedModal) savedModal.style.display = 'none'; };
+if (closeFlashcardModal) closeFlashcardModal.onclick = () => { if (flashcardModal) flashcardModal.style.display = 'none'; };
+if (closeAuthModal) closeAuthModal.onclick = () => { if (authModal) authModal.style.display = 'none'; };
+
+if (authForm) authForm.onsubmit = (e) => handleAuth(e, 'signin');
+if (document.querySelector('.auth-signup')) {
+  document.querySelector('.auth-signup').onclick = (e) => {
+    e.preventDefault();
+    handleAuth(e, 'signup');
+  };
+}
+
+setupAuthToggle();
+
+if (reviewBtn) {
+  reviewBtn.onclick = () => {
+    if (currentUser && savedWords.size >= 10) {
+      startFlashcardSession();
+    } else if (!currentUser && authModal) {
+      authModal.style.display = 'flex';
+    }
+  };
+  reviewBtn.onmouseenter = () => {
+    if (reviewBtn.disabled && currentUser) {
+      showTooltip(reviewBtn, 'Save at least 10 words first');
+    }
+  };
+}
+
+document.addEventListener('click', (e) => {
+  if (authIndicator && userDropdown && !authIndicator.contains(e.target) && !userDropdown.contains(e.target)) {
+    userDropdown.style.display = 'none';
+  }
+});
+
+window.onclick = (e) => {
+  if (e.target === filterModal) filterModal.style.display = 'none';
+  if (e.target === exerciseModal) exerciseModal.style.display = 'none';
+  if (e.target === savedModal) savedModal.style.display = 'none';
+  if (e.target === flashcardModal) flashcardModal.style.display = 'none';
+  if (e.target === authModal) authModal.style.display = 'none';
+};
+
+(async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    await updateSavedWords();
+    await loadQuizStats();
+  }
+  renderAuthIndicator();
+  if (reviewBtn) reviewBtn.disabled = !currentUser || savedWords.size < 10;
+})();
+
+if (title) title.onclick = () => { if (searchInput) searchInput.value = ''; showResult(''); };
+if (randomBtn) randomBtn.onclick = () => { const w = getRandomWord(); if (searchInput) searchInput.value = w; showResult(w); };
+if (exerciseBtn) exerciseBtn.onclick = generateExercise;
+if (keyboardToggleBtn) {
+  keyboardToggleBtn.onclick = () => {
+    const isHidden = virtualKeyboard.style.display === 'none';
+    virtualKeyboard.style.display = isHidden ? 'block' : 'none';
+    keyboardToggleBtn.textContent = isHidden ? '⌨️ Hide Keyboard' : '⌨️ Show Keyboard';
+  };
+}
+
+document.querySelectorAll('.key').forEach(k => {
+  k.onclick = () => {
+    const act = k.dataset.action;
+    if (act === 'backspace') {
+      if (searchInput) searchInput.value = searchInput.value.slice(0, -1);
+    } else if (act === 'space') {
+      if (searchInput) searchInput.value += ' ';
+    } else {
+      if (searchInput) searchInput.value += k.textContent;
+    }
+    if (searchInput) {
+      searchInput.focus();
+      showResult(searchInput.value);
+    }
+  };
+});
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', loadFromSupabase);
+} else {
+  loadFromSupabase();
 }
 
 async function loadFromSupabase() {
@@ -880,7 +1352,6 @@ async function loadFromSupabase() {
     });
     dictionary = { kg: newDict };
     dictionaryLoadedFromSupabase = true;
-    console.log('Dictionary loaded from Supabase');
     normalizeDictionary(dictionary);
     if (searchInput.value.trim()) {
       showResult(searchInput.value);
@@ -906,47 +1377,4 @@ function normalizeDictionary(dict) {
       }
     });
   }
-}
-
-let searchTimeout;
-searchInput.addEventListener('input', (e) => {
-  clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(() => showResult(e.target.value), 250);
-});
-
-title.onclick = () => { searchInput.value = ''; showResult(''); };
-randomBtn.onclick = () => { const w = getRandomWord(); searchInput.value = w; showResult(w); };
-exerciseBtn.onclick = generateExercise;
-closeModal.onclick = () => filterModal.style.display = 'none';
-closeExerciseModal.onclick = () => exerciseModal.style.display = 'none';
-keyboardToggleBtn.onclick = () => {
-  const isHidden = virtualKeyboard.style.display === 'none';
-  virtualKeyboard.style.display = isHidden ? 'block' : 'none';
-  keyboardToggleBtn.textContent = isHidden ? '⌨️ Hide Keyboard' : '⌨️ Show Keyboard';
-};
-
-document.querySelectorAll('.key').forEach(k => {
-  k.onclick = () => {
-    const act = k.dataset.action;
-    if (act === 'backspace') {
-      searchInput.value = searchInput.value.slice(0, -1);
-    } else if (act === 'space') {
-      searchInput.value += ' ';
-    } else {
-      searchInput.value += k.textContent;
-    }
-    searchInput.focus();
-    showResult(searchInput.value);
-  };
-});
-
-window.onclick = (e) => {
-  if (e.target === filterModal) filterModal.style.display = 'none';
-  if (e.target === exerciseModal) exerciseModal.style.display = 'none';
-};
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', loadFromSupabase);
-} else {
-  loadFromSupabase();
 }
