@@ -35,6 +35,7 @@ let dictionary = {
       pronunciation: "/d͡ʒɑzuː/",
       topic: "communication",
       cefr: "A2",
+      forms: ["жаз", "жазам", "жазасың", "жазат", "жаздым", "жазган"],
       senses: [{
         pos: "verb",
         translation: "write",
@@ -241,6 +242,39 @@ let dictionary = {
               "positive": "жазса",
               "negative": "жазбаса"
             }
+          }
+        }
+      }]
+    },
+    "кол": {
+      canonical: "кол",
+      pronunciation: "/kol/",
+      topic: "body",
+      cefr: "A1",
+      forms: ["колдун", "колго", "колдо", "колдон", "колдор"],
+      senses: [{
+        pos: "noun",
+        translation: "hand, arm",
+        examples: [
+          { en: "My hand hurts.", kg: "Менин колум ооруйт." },
+          { en: "Raise your hand.", kg: "Колуңузду көтөрүңүз." }
+        ],
+        grammar: {
+          singular: {
+            nominative: "кол",
+            genitive: "колдун",
+            dative: "колго",
+            accusative: "колду",
+            locative: "колдо",
+            ablative: "колдон"
+          },
+          plural: {
+            nominative: "колдор",
+            genitive: "колдордун",
+            dative: "колдорго",
+            accusative: "колдорду",
+            locative: "колдордо",
+            ablative: "колдордон"
           }
         }
       }]
@@ -530,32 +564,42 @@ function renderEntry(lemma, entry) {
 
 function showResult(query) {
   const q = query.toLowerCase().trim();
+  
+  hideSuggestions();
+  
   if (!q) {
     resultsContainer.innerHTML = `<div class="about-section"><div class="section-title">About</div><p class="about-content">bla blabla bla</p></div>`;
     attachEventListeners();
     return;
   }
+  
   const isKg = isKyrgyz(q);
   let found = false;
-  if (isKg) {
-    if (dictionary.kg[q]) {
-      resultsContainer.innerHTML = renderEntry(q, dictionary.kg[q]);
-      found = true;
-    } else {
-      for (let w in dictionary.kg) {
-        if (dictionary.kg[w].forms && dictionary.kg[w].forms.map(f => f.toLowerCase()).includes(q)) {
-          resultsContainer.innerHTML = renderEntry(w, dictionary.kg[w]);
-          found = true;
-          break;
-        }
+  
+  if (dictionary.kg[q]) {
+    resultsContainer.innerHTML = renderEntry(q, dictionary.kg[q]);
+    found = true;
+  } 
+  else {
+    for (let w in dictionary.kg) {
+      if (dictionary.kg[w].forms && dictionary.kg[w].forms.map(f => f.toLowerCase()).includes(q)) {
+        resultsContainer.innerHTML = renderEntry(w, dictionary.kg[w]);
+        found = true;
+        break;
       }
     }
-  } else {
+  }
+  
+  if (!found && !isKg) {
     const matches = [];
     for (let w in dictionary.kg) {
       (dictionary.kg[w].senses || [dictionary.kg[w]]).forEach(s => {
         const translations = s.translations || [s.translation || ''];
-        if (translations.some(t => t.toLowerCase().startsWith(q))) matches.push(w);
+        if (translations.some(t => t.toLowerCase() === q)) {
+          matches.unshift(w);
+        } else if (translations.some(t => t.toLowerCase().startsWith(q))) {
+          matches.push(w);
+        }
       });
     }
     if (matches.length === 1) {
@@ -569,10 +613,84 @@ function showResult(query) {
       found = true;
     }
   }
+  
+  if (!found) {
+    const examples = [];
+    
+    for (let lemma in dictionary.kg) {
+      const entry = dictionary.kg[lemma];
+      (entry.senses || []).forEach(sense => {
+        (sense.examples || []).forEach(ex => {
+          const kgText = ex.kg;
+          const enText = ex.en;
+          
+          const escapedQuery = escapeRegExp(q);
+          const wordPattern = new RegExp(`(?:^|\\s|[.,!?;:])${escapedQuery}(?:$|\\s|[.,!?;:])`, 'i');
+          
+          const kgMatch = kgText && wordPattern.test(kgText);
+          const enMatch = enText && wordPattern.test(enText);
+          
+          if (kgMatch || enMatch) {
+            const highlightedKg = kgMatch ? 
+              kgText.replace(wordPattern, '<span class="lemma-highlight">$&</span>') : kgText;
+            const highlightedEn = enMatch ? 
+              enText.replace(wordPattern, '<span class="lemma-highlight">$&</span>') : enText;
+            
+            examples.push({ 
+              lemma: lemma, 
+              exampleKg: ex.kg, 
+              exampleEn: ex.en,
+              highlightedKg: highlightedKg,
+              highlightedEn: highlightedEn
+            });
+          }
+        });
+      });
+    }
+    
+    if (examples.length > 0) {
+      const uniqueExamples = [];
+      const seenLemmas = new Set();
+      examples.forEach(ex => {
+        if (!seenLemmas.has(ex.lemma)) {
+          seenLemmas.add(ex.lemma);
+          uniqueExamples.push(ex);
+        }
+      });
+      
+      const html = uniqueExamples.map(i => `
+        <div class="example-match-item">
+          <div class="example-original">${i.highlightedKg}</div>
+          <div class="example-translation">${i.highlightedEn}</div>
+          <button class="goto-lemma-btn" data-word="${i.lemma}">View "${i.lemma}"</button>
+        </div>`).join('');
+        
+      resultsContainer.innerHTML = `
+        <div class="no-result">
+          <p>No direct entry for "${escapeHtml(query)}", but found in examples:</p>
+          <div class="examples-in-context">${html}</div>
+        </div>`;
+      found = true;
+      
+      resultsContainer.querySelectorAll('.goto-lemma-btn').forEach(btn => {
+        btn.onclick = () => {
+          const word = btn.dataset.word;
+          searchInput.value = word;
+          showResult(word);
+        };
+      });
+    }
+  }
+  
   if (!found) {
     resultsContainer.innerHTML = `<div class="no-result">No entry found for "${escapeHtml(query)}"</div>`;
   }
+  
   attachEventListeners();
+}
+
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function showFilterList(filterType, value) {
@@ -1058,18 +1176,31 @@ let selectedSuggestionIndex = -1;
 const suggestionsContainer = document.getElementById('searchSuggestions');
 
 function showSuggestions(query) {
-  if (!dictionaryLoadedFromSupabase || query.length < 2) {
+  if (!dictionaryLoadedFromSupabase || query.length < 4) {
     suggestionsContainer.style.display = 'none';
     selectedSuggestionIndex = -1;
     return;
   }
 
   const lowerQuery = query.toLowerCase();
-  const matches = new Set();
+  const matches = new Map();
 
   Object.keys(dictionary.kg).forEach(lemma => {
     if (lemma.toLowerCase().startsWith(lowerQuery)) {
-      matches.add(lemma);
+      matches.set(lemma, 1);
+    }
+  });
+
+  Object.entries(dictionary.kg).forEach(([lemma, entry]) => {
+    if (entry.forms) {
+      if (entry.forms.some(f => f.toLowerCase() === lowerQuery)) {
+        matches.set(lemma, 0);
+      }
+      else if (entry.forms.some(f => f.toLowerCase().startsWith(lowerQuery))) {
+        if (!matches.has(lemma) || matches.get(lemma) > 2) {
+          matches.set(lemma, 2);
+        }
+      }
     }
   });
 
@@ -1077,12 +1208,20 @@ function showSuggestions(query) {
     (entry.senses || [entry]).forEach(sense => {
       const translations = sense.translations || [sense.translation || ''];
       if (translations.some(t => t.toLowerCase().startsWith(lowerQuery))) {
-        matches.add(lemma);
+        if (!matches.has(lemma) || matches.get(lemma) > 3) {
+          matches.set(lemma, 3);
+        }
       }
     });
   });
 
-  const sortedMatches = Array.from(matches).sort().slice(0, 8);
+  const sortedMatches = Array.from(matches.entries())
+    .sort((a, b) => {
+      if (a[1] !== b[1]) return a[1] - b[1];
+      return a[0].localeCompare(b[0]);
+    })
+    .map(entry => entry[0])
+    .slice(0, 8);
 
   if (sortedMatches.length === 0) {
     suggestionsContainer.style.display = 'none';
@@ -1111,6 +1250,7 @@ function showSuggestions(query) {
   });
 }
 
+
 function hideSuggestions() {
   suggestionsContainer.style.display = 'none';
   selectedSuggestionIndex = -1;
@@ -1128,6 +1268,15 @@ function updateSelectedSuggestion() {
 }
 
 searchInput.addEventListener('keydown', (e) => {
+  const query = searchInput.value.trim();
+  
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    showResult(query);
+    hideSuggestions();
+    return;
+  }
+  
   const items = suggestionsContainer.querySelectorAll('.search-suggestion');
   if (suggestionsContainer.style.display === 'none') return;
 
@@ -1143,12 +1292,6 @@ searchInput.addEventListener('keydown', (e) => {
     if (selectedSuggestionIndex >= 0) {
       items[selectedSuggestionIndex]?.scrollIntoView({ block: 'nearest' });
     }
-  } else if (e.key === 'Enter' && selectedSuggestionIndex >= 0) {
-    e.preventDefault();
-    const word = items[selectedSuggestionIndex].dataset.word;
-    searchInput.value = word;
-    hideSuggestions();
-    showResult(word);
   } else if (e.key === 'Escape') {
     hideSuggestions();
   }
@@ -1157,14 +1300,51 @@ searchInput.addEventListener('keydown', (e) => {
 searchInput.addEventListener('input', (e) => {
   clearTimeout(suggestionTimeout);
   const value = e.target.value;
-  if (value.trim() === '') {
+  const trimmedValue = value.trim();
+  
+  if (trimmedValue === '') {
     hideSuggestions();
+    showResult('');
     return;
   }
+  
+  const lowerValue = trimmedValue.toLowerCase();
+  let shouldShowResultImmediately = false;
+  
+  for (let lemma in dictionary.kg) {
+    const entry = dictionary.kg[lemma];
+    
+    if (lemma.toLowerCase() === lowerValue) {
+      shouldShowResultImmediately = true;
+      break;
+    }
+    
+    if (entry.forms && entry.forms.some(f => f.toLowerCase() === lowerValue)) {
+      shouldShowResultImmediately = true;
+      break;
+    }
+    
+    (entry.senses || [entry]).forEach(s => {
+      const translations = s.translations || [s.translation || ''];
+      if (translations.some(t => t.toLowerCase() === lowerValue)) {
+        shouldShowResultImmediately = true;
+      }
+    });
+    
+    if (shouldShowResultImmediately) break;
+  }
+  
+  if (shouldShowResultImmediately) {
+    hideSuggestions();
+    showResult(trimmedValue);
+    return;
+  }
+  
   suggestionTimeout = setTimeout(() => {
     showSuggestions(value);
   }, 150);
 });
+
 
 let isClickingSuggestion = false;
 suggestionsContainer.addEventListener('mousedown', () => {
@@ -1258,7 +1438,8 @@ document.querySelectorAll('.key').forEach(k => {
     }
     if (searchInput) {
       searchInput.focus();
-      showResult(searchInput.value);
+      const event = new Event('input');
+      searchInput.dispatchEvent(event);
     }
   };
 });
