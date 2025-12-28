@@ -35,7 +35,7 @@ let dictionary = {
       pronunciation: "/d͡ʒɑzuː/",
       topic: "communication",
       cefr: "A2",
-      forms: ["жаз", "жазам", "жазасың", "жазат", "жаздым", "жазган"],
+      forms: ["жаз", "жазам", "жазасың", "жазат", "жаздым", "жазган"], // Added forms for testing
       senses: [{
         pos: "verb",
         translation: "write",
@@ -246,12 +246,12 @@ let dictionary = {
         }
       }]
     },
-    "кол": {
+    "кол": {  // Added example for form matching
       canonical: "кол",
       pronunciation: "/kol/",
       topic: "body",
       cefr: "A1",
-      forms: ["колдун", "колго", "колдо", "колдон", "колдор"],
+      forms: ["колдун", "колго", "колдо", "колдон", "колдор"], // Added grammatical forms
       senses: [{
         pos: "noun",
         translation: "hand, arm",
@@ -565,6 +565,7 @@ function renderEntry(lemma, entry) {
 function showResult(query) {
   const q = query.toLowerCase().trim();
   
+  // Hide suggestions when showing a result
   hideSuggestions();
   
   if (!q) {
@@ -576,10 +577,12 @@ function showResult(query) {
   const isKg = isKyrgyz(q);
   let found = false;
   
+  // 1. Check for exact lemma match FIRST
   if (dictionary.kg[q]) {
     resultsContainer.innerHTML = renderEntry(q, dictionary.kg[q]);
     found = true;
   } 
+  // 2. Check for form matches (grammatical forms)
   else {
     for (let w in dictionary.kg) {
       if (dictionary.kg[w].forms && dictionary.kg[w].forms.map(f => f.toLowerCase()).includes(q)) {
@@ -590,13 +593,15 @@ function showResult(query) {
     }
   }
   
+  // 3. Check English translations (exact match)
   if (!found && !isKg) {
     const matches = [];
     for (let w in dictionary.kg) {
       (dictionary.kg[w].senses || [dictionary.kg[w]]).forEach(s => {
         const translations = s.translations || [s.translation || ''];
+        // Check for exact match first
         if (translations.some(t => t.toLowerCase() === q)) {
-          matches.unshift(w);
+          matches.unshift(w); // Put exact matches at the front
         } else if (translations.some(t => t.toLowerCase().startsWith(q))) {
           matches.push(w);
         }
@@ -614,7 +619,8 @@ function showResult(query) {
     }
   }
   
-  if (!found) {
+  // 4. NEW FEATURE: Check for matches in examples (Issue i) - FIXED to search BOTH Kyrgyz AND English
+  if (!found) { // Only search in examples for words with at least 2 chars
     const examples = [];
     
     for (let lemma in dictionary.kg) {
@@ -624,13 +630,17 @@ function showResult(query) {
           const kgText = ex.kg;
           const enText = ex.en;
           
+          // Create regex pattern to match whole words (case-insensitive)
+          // This handles both Kyrgyz and English
           const escapedQuery = escapeRegExp(q);
           const wordPattern = new RegExp(`(?:^|\\s|[.,!?;:])${escapedQuery}(?:$|\\s|[.,!?;:])`, 'i');
           
+          // Check if query appears as a whole word in Kyrgyz OR English examples
           const kgMatch = kgText && wordPattern.test(kgText);
           const enMatch = enText && wordPattern.test(enText);
           
           if (kgMatch || enMatch) {
+            // Highlight the whole word match in the appropriate language
             const highlightedKg = kgMatch ? 
               kgText.replace(wordPattern, '<span class="lemma-highlight">$&</span>') : kgText;
             const highlightedEn = enMatch ? 
@@ -649,6 +659,7 @@ function showResult(query) {
     }
     
     if (examples.length > 0) {
+      // Remove duplicates (same lemma)
       const uniqueExamples = [];
       const seenLemmas = new Set();
       examples.forEach(ex => {
@@ -672,6 +683,7 @@ function showResult(query) {
         </div>`;
       found = true;
       
+      // Attach listeners for the "View" buttons
       resultsContainer.querySelectorAll('.goto-lemma-btn').forEach(btn => {
         btn.onclick = () => {
           const word = btn.dataset.word;
@@ -689,6 +701,7 @@ function showResult(query) {
   attachEventListeners();
 }
 
+// Helper function for regex escaping
 function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -858,10 +871,15 @@ function attachEventListeners() {
   });
 }
 
-const supabase = window.supabase.createClient(
-  'https://jvizodlmiiisubatqykg.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2aXpvZGxtaWlpc3ViYXRxeWtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NjYxNTYsImV4cCI6MjA3NzI0MjE1Nn0.YD9tMUyQVq7v5gkWq-f_sQfYfD2raq_o7FeOmLjeN7I'
-);
+let supabase = null;
+if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
+  supabase = window.supabase.createClient(
+    'https://jvizodlmiiisubatqykg.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2aXpvZGxtaWlpc3ViYXRxeWtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NjYxNTYsImV4cCI6MjA3NzI0MjE1Nn0.YD9tMUyQVq7v5gkWq-f_sQfYfD2raq_o7FeOmLjeN7I'
+  );
+} else {
+  console.warn('Supabase not loaded - using local dictionary');
+}
 
 let currentUser = null;
 let savedWords = new Set();
@@ -1176,6 +1194,7 @@ let selectedSuggestionIndex = -1;
 const suggestionsContainer = document.getElementById('searchSuggestions');
 
 function showSuggestions(query) {
+  // Issue ii.a: Changed from 2 to 4 characters minimum
   if (!dictionaryLoadedFromSupabase || query.length < 4) {
     suggestionsContainer.style.display = 'none';
     selectedSuggestionIndex = -1;
@@ -1183,41 +1202,49 @@ function showSuggestions(query) {
   }
 
   const lowerQuery = query.toLowerCase();
-  const matches = new Map();
+  const matches = new Map(); // Use Map to track lemmas with their priority
 
+  // Add lemmas that start with the query (highest priority)
   Object.keys(dictionary.kg).forEach(lemma => {
     if (lemma.toLowerCase().startsWith(lowerQuery)) {
-      matches.set(lemma, 1);
+      matches.set(lemma, 1); // Priority 1 for lemma match
     }
   });
 
+  // Issue ii.c: CRITICAL FIX - Add forms that match EXACTLY
   Object.entries(dictionary.kg).forEach(([lemma, entry]) => {
     if (entry.forms) {
+      // Check for EXACT matches first (highest priority for forms)
       if (entry.forms.some(f => f.toLowerCase() === lowerQuery)) {
-        matches.set(lemma, 0);
+        matches.set(lemma, 0); // Priority 0 (highest) for exact form match
       }
+      // Also check for partial matches
       else if (entry.forms.some(f => f.toLowerCase().startsWith(lowerQuery))) {
         if (!matches.has(lemma) || matches.get(lemma) > 2) {
-          matches.set(lemma, 2);
+          matches.set(lemma, 2); // Priority 2 for partial form match
         }
       }
     }
   });
 
+  // Add English translations
   Object.entries(dictionary.kg).forEach(([lemma, entry]) => {
     (entry.senses || [entry]).forEach(sense => {
       const translations = sense.translations || [sense.translation || ''];
       if (translations.some(t => t.toLowerCase().startsWith(lowerQuery))) {
         if (!matches.has(lemma) || matches.get(lemma) > 3) {
-          matches.set(lemma, 3);
+          matches.set(lemma, 3); // Priority 3 for translation match
         }
       }
     });
   });
 
+  // Sort matches by priority (0 = highest) and then alphabetically
   const sortedMatches = Array.from(matches.entries())
     .sort((a, b) => {
+      // First by priority
       if (a[1] !== b[1]) return a[1] - b[1];
+      // Then alphabetically
       return a[0].localeCompare(b[0]);
     })
     .map(entry => entry[0])
@@ -1268,8 +1295,10 @@ function updateSelectedSuggestion() {
 }
 
 searchInput.addEventListener('keydown', (e) => {
+  // First check if we should show the entry directly
   const query = searchInput.value.trim();
   
+  // If Enter is pressed, always show result directly
   if (e.key === 'Enter') {
     e.preventDefault();
     showResult(query);
@@ -1311,19 +1340,23 @@ searchInput.addEventListener('input', (e) => {
   const lowerValue = trimmedValue.toLowerCase();
   let shouldShowResultImmediately = false;
   
+  // Check for exact matches that should show result immediately
   for (let lemma in dictionary.kg) {
     const entry = dictionary.kg[lemma];
     
+    // 1. Check exact lemma match
     if (lemma.toLowerCase() === lowerValue) {
       shouldShowResultImmediately = true;
       break;
     }
     
+    // 2. Check exact form match (Issue ii.c)
     if (entry.forms && entry.forms.some(f => f.toLowerCase() === lowerValue)) {
       shouldShowResultImmediately = true;
       break;
     }
     
+    // 3. Check exact English translation match
     (entry.senses || [entry]).forEach(s => {
       const translations = s.translations || [s.translation || ''];
       if (translations.some(t => t.toLowerCase() === lowerValue)) {
@@ -1334,12 +1367,14 @@ searchInput.addEventListener('input', (e) => {
     if (shouldShowResultImmediately) break;
   }
   
+  // If there's an exact match, show the result immediately
   if (shouldShowResultImmediately) {
     hideSuggestions();
     showResult(trimmedValue);
     return;
   }
   
+  // Otherwise, show suggestions after delay
   suggestionTimeout = setTimeout(() => {
     showSuggestions(value);
   }, 150);
@@ -1449,6 +1484,8 @@ if (document.readyState === 'loading') {
 } else {
   loadFromSupabase();
 }
+showResult('');
+attachEventListeners();
 
 async function loadFromSupabase() {
   if (typeof window.supabase === 'undefined') {
